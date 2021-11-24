@@ -1,16 +1,15 @@
 #pragma once
 
+#ifdef __linux__
+
 #include "Test.h"
 #include "../Platform/PlatformTypes.h"
-#include "../Platform/Platform.h"
+#include "../Platform/PlatformLinux.h"
 
 using namespace primal;
 
 platform::window _windows[4];
 
-#ifdef _WIN64
-// Insert Windows OS win_proc function from Primal here
-#elif __linux__
 enum Key
 {
 	ENTER = 36
@@ -20,14 +19,10 @@ enum State
 {
 	ALT = 0x18
 };
-#endif // _WIN64
 
 class engine_test : public test
 {
 public:
-#ifdef _WIN64
-// Insert Windows OS specific initialize() and run() funstions from Primal here
-#elif __linux__
 	bool initialize(void* disp) override
 	{
 		platform::window_init_info info[]
@@ -145,8 +140,13 @@ public:
 			}
 		}
 	}
-#endif // _WIN64
 
-// shutdown() function from Primal goes here
-
+	void shutdown() override
+    {
+        for (u32 i{ 0 }; i < _countof(_windows); ++i)
+        {
+            platform::remove_window(_windows[i].get_id());
+        }
+    }	
 };
+#endif // __linux__

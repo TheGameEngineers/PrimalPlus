@@ -3,12 +3,7 @@
 
 namespace primal::platform {
 
-#ifdef _WIN64
-// Windows OS specific window handler
-// NOTE: add Windows code from Primal Platform.cpp
-#elif __APPLE__
-// OSX specific window handler
-#elif __linux__
+#ifdef __linux__
 namespace {
 // Linux OS specific window info
 struct window_info
@@ -202,14 +197,77 @@ remove_window(window_id id)
 	XDestroyWindow(info.display, info.wnd);
 	windows.remove(id);
 }
-#elif
-#error Must implement at least one platform.
-#endif // _WIN64
 
-// NOTE: this function is needed in the abstrasction layer for the XLib windows handling implementation.
-//       The function prototype will need to be added to the window class in Window.h.
+//***************************************************************
+// Implementation of the window class abstraction layer functions
+//***************************************************************
+void
+window::set_fullscreen(bool is_fullscreen) const
+{
+    assert(is_valid());
+    set_window_fullscreen(_id, is_fullscreen);
+}
+
+bool
+window::is_fullscreen() const
+{
+    assert(is_valid());
+    return is_window_fullscreen(_id);
+}
+
+void*
+window::handle() const
+{
+    assert(is_valid());
+    return get_window_handle(_id);
+}
+
+void
+window::set_caption(const wchar_t* caption) const
+{
+    assert(is_valid());
+    set_window_caption(_id, caption);
+}
+
+math::u32v4
+window::size() const
+{
+    assert(is_valid());
+    return get_window_size(_id);
+}
+
+void
+window::resize(u32 width, u32 height) const
+{
+    assert(is_valid());
+    resize_window(_id, width, height);
+}
+
+u32
+window::width() const
+{
+    math::u32v4 s{ size() };
+    return s.z - s.x;
+}
+
+u32
+window::height() const
+{
+    math::u32v4 s{ size() };
+    return s.w - s.y;
+}
+
+bool
+window::is_closed() const
+{
+    assert(is_valid());
+    return is_window_closed(_id);
+}
+
+// TODO: Add function prototype to window class in Window.h
 void
 window::close()
 {
-    set_window_closed(m_id);
+    set_window_closed(_id);
 }
+#endif // __linux__
