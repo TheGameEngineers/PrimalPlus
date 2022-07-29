@@ -130,8 +130,8 @@ namespace primal::graphics::vulkan::core
 				VkViewport viewport{};
 				viewport.x = 0.0f;
 				viewport.y = 0.0f;
-				viewport.width = surface->width();
-				viewport.height = surface->height();
+				viewport.width = (f32)surface->width();
+				viewport.height = (f32)surface->height();
 				viewport.minDepth = 0.0f;
 				viewport.maxDepth = 1.0f;
 
@@ -144,9 +144,9 @@ namespace primal::graphics::vulkan::core
 				vkCmdSetViewport(cmd_buffer.cmd_buffer, 0, 1, &viewport);
 				vkCmdSetScissor(cmd_buffer.cmd_buffer, 0, 1, &scissor);
 
-				surface->set_renderpass_render_area({ 0.0f, 0.0f, (f32)surface->width(), (f32)surface->height() });
+				surface->set_renderpass_render_area({ 0, 0, surface->width(), surface->height() });
 				surface->set_renderpass_clear_color({ 0.0f, 0.0f, 0.0f, 0.0f });
-				renderpass::begin_renderpass(cmd_buffer.cmd_buffer, cmd_buffer.state, surface->renderpass(), surface->current_framebuffer());
+				renderpass::begin_renderpass(cmd_buffer.cmd_buffer, cmd_buffer.cmd_state, surface->renderpass(), surface->current_framebuffer());
 
 				return true;
 			}
@@ -156,7 +156,7 @@ namespace primal::graphics::vulkan::core
 				u32 frame{ surface->current_frame() };
 				vulkan_cmd_buffer& cmd_buffer{ _cmd_buffers[frame] };
 
-				renderpass::end_renderpass(cmd_buffer.cmd_buffer, cmd_buffer.state, surface->renderpass());
+				renderpass::end_renderpass(cmd_buffer.cmd_buffer, cmd_buffer.cmd_state, surface->renderpass());
 				end_cmd_buffer(cmd_buffer);
 				
 				// Make sure the previous frame is not using this image
@@ -307,18 +307,18 @@ namespace primal::graphics::vulkan::core
 		// Indices (locations) of Queue Families (if they exist at all)
 		struct queue_family_indices
 		{
-			u32 graphics_family = -1;			// Location of Graphics Queue Family
-			u32 presentation_family = -1;		// Location of Presentation Queue Family
+			u32 graphics_family{ u32_invalid_id };			// Location of Graphics Queue Family
+			u32 presentation_family{ u32_invalid_id };		// Location of Presentation Queue Family
 
 			// Check if queue families are valid
 			bool is_valid() { return graphics_family >= 0 && presentation_family >= 0; }
 		} queue_family_indices;
 
-		struct device
+		struct device_group
 		{
 			VkPhysicalDevice physical_device;
 			VkDevice logical_device;
-		} device;
+		} device_group;
 
 		using surface_collection = utl::free_list<vulkan_surface>;
 
@@ -487,13 +487,13 @@ namespace primal::graphics::vulkan::core
 			{
 				if (check_device_suitable(d, surface))
 				{
-					device.physical_device = d;
+					device_group.physical_device = d;
 					break;
 				}
 			}
 
-			assert(device.physical_device);
-			if (!device.physical_device)
+			assert(device_group.physical_device);
+			if (!device_group.physical_device)
 			{
 				MESSAGE("Failed to find suitable physical device...");
 				return false;
@@ -536,7 +536,7 @@ namespace primal::graphics::vulkan::core
 			info.pEnabledFeatures = &device_features;					// Physical device features logical device will use
 
 			VkResult result{ VK_SUCCESS };
-			VkCall(result = vkCreateDevice(device.physical_device, &info, nullptr, &device.logical_device), "Failed to create a logical device...");
+			VkCall(result = vkCreateDevice(device_group.physical_device, &info, nullptr, &device_group.logical_device), "Failed to create a logical device...");
 			if (result != VK_SUCCESS) return false;
 
 			MESSAGE("Logical Device created successfully");
@@ -554,10 +554,10 @@ namespace primal::graphics::vulkan::core
 
 	// Function Pointers
 	// NOTE: some of these will move into VulkanSurface
-	PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR;
-	PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
-	PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR;
-	PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR;
+	PFN_vkGetPhysicalDeviceSurfaceSupportKHR		fpGetPhysicalDeviceSurfaceSupportKHR;
+	PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR	fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
+	PFN_vkGetPhysicalDeviceSurfaceFormatsKHR		fpGetPhysicalDeviceSurfaceFormatsKHR;
+	PFN_vkGetPhysicalDeviceSurfacePresentModesKHR	fpGetPhysicalDeviceSurfacePresentModesKHR;
 	
 	bool
 	initialize()
@@ -613,8 +613,8 @@ namespace primal::graphics::vulkan::core
 		if (enable_validation_layers)
 		{
 			set_debug_messenger_create_info(debug_create_info);
-			info.enabledLayerCount = (u32)validation_layers.size();
-			info.ppEnabledLayerNames = validation_layers.data();
+			info.enabledLayerCount = _countof(validation_layers);
+			info.ppEnabledLayerNames = &validation_layers[0];
 			info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
 		}
 		else
@@ -656,7 +656,7 @@ namespace primal::graphics::vulkan::core
 	shutdown()
 	{
 		gfx_command.release();
-		vkDestroyDevice(device.logical_device, nullptr);
+		vkDestroyDevice(device_group.logical_device, nullptr);
 		
 		if (enable_validation_layers)
 			destroy_debug_utils_messenger_ext(instance, debug_messenger, nullptr);
@@ -668,8 +668,8 @@ namespace primal::graphics::vulkan::core
 	create_device(VkSurfaceKHR surface)
 	{
 		// These should only be created once
-		if (device.logical_device || device.physical_device) return true;
-		assert(!device.logical_device && !device.physical_device);
+		if (device_group.logical_device || device_group.physical_device) return true;
+		assert(!device_group.logical_device && !device_group.physical_device);
 		
 		return (get_physical_device(surface) && create_logical_device());
 	}
@@ -681,7 +681,7 @@ namespace primal::graphics::vulkan::core
 		if (gfx_command.command_pool()) return true;
 		assert(!gfx_command.command_pool());
 
-		new (&gfx_command) vulkan_command(device.logical_device, queue_family_indices.graphics_family, swapchain_image_count);
+		new (&gfx_command) vulkan_command(device_group.logical_device, queue_family_indices.graphics_family, swapchain_image_count);
 		if (!gfx_command.command_pool()) return false;
 
 		return true;
@@ -720,7 +720,7 @@ namespace primal::graphics::vulkan::core
 	find_memory_index(u32 type, u32 flags)
 	{
 		VkPhysicalDeviceMemoryProperties properties;
-		vkGetPhysicalDeviceMemoryProperties(device.physical_device, &properties);
+		vkGetPhysicalDeviceMemoryProperties(device_group.physical_device, &properties);
 
 		for (u32 i{ 0 }; i < properties.memoryTypeCount; ++i)
 		{
@@ -747,13 +747,13 @@ namespace primal::graphics::vulkan::core
 	VkPhysicalDevice
 	physical_device()
 	{
-		return device.physical_device;
+		return device_group.physical_device;
 	}
 
 	VkDevice
 	logical_device()
 	{
-		return device.logical_device;
+		return device_group.logical_device;
 	}
 
 	VkInstance
@@ -783,7 +783,7 @@ namespace primal::graphics::vulkan::core
 	}
 
 	void
-	resize_surface(surface_id id, u32 width, u32 height)
+	resize_surface(surface_id id, u32, u32)
 	{
 		surfaces[id].resize();
 	}

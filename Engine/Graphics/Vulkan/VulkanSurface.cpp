@@ -56,7 +56,7 @@ namespace primal::graphics::vulkan
 				extent.width = (u32)width;
 				extent.height = (u32)height;
 
-				// Clamp extent to be withing bounderies of surface min and max
+				// Clamp extent to be within bounderies of surface min and max
 				extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
 				extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
 
@@ -84,7 +84,7 @@ namespace primal::graphics::vulkan
 
 			VkImageView image_view{};
 			VkResult result{ VK_SUCCESS };
-			VkCall(vkCreateImageView(core::logical_device(), &info, nullptr, &image_view), "Failed to create Image View...");
+			VkCall(result = vkCreateImageView(core::logical_device(), &info, nullptr, &image_view), "Failed to create Image View...");
 
 			return image_view;
 		}
@@ -105,7 +105,7 @@ namespace primal::graphics::vulkan
 		create_swapchain();
 		create_render_pass();
 		recreate_framebuffers();
-		core::create_graphics_command(_swapchain.images.size());
+		core::create_graphics_command((u32)_swapchain.images.size());
 	}
 
 	void
@@ -280,7 +280,7 @@ namespace primal::graphics::vulkan
 	vulkan_surface::create_render_pass()
 	{
 		_renderpass = renderpass::create_renderpass(core::logical_device(), _swapchain.image_format, core::depth_format(),
-													 { 0.0f, 0.0f, (f32)_window.width(), (f32)_window.height() }, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, 0.0f);
+													 { 0, 0, _window.width(), _window.height() }, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, 0);
 
 	}
 

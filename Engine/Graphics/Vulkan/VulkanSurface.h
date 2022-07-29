@@ -29,7 +29,7 @@ namespace primal::graphics::vulkan
 	class vulkan_surface
 	{
 	public:
-		explicit vulkan_surface(platform::window window) : _window(window)
+		explicit vulkan_surface(platform::window window) : _window{ window }
 		{
 			assert(window.handle());
 		}
@@ -41,16 +41,16 @@ namespace primal::graphics::vulkan
 		void resize();
 		bool recreate_swapchain();
 		bool next_image_index(VkSemaphore image_available, VkFence fence, u64 timeout);
-		void set_renderpass_render_area(math::v4 render_area) { _renderpass.render_area = render_area; }
-		void set_renderpass_clear_color(math::v4 clear_color) { _renderpass.clear_color = clear_color; }
+		constexpr void set_renderpass_render_area(math::u32v4 render_area) { _renderpass.render_area = render_area; }
+		constexpr void set_renderpass_clear_color(math::v4 clear_color) { _renderpass.clear_color = clear_color; }
 
-		[[nodiscard]] VkFramebuffer& current_framebuffer() { return _framebuffers[_image_index].framebuffer; }
-		[[nodiscard]] vulkan_renderpass& renderpass() { return _renderpass; }
+		[[nodiscard]] constexpr VkFramebuffer& current_framebuffer() { return _framebuffers[_image_index].framebuffer; }
+		[[nodiscard]] constexpr vulkan_renderpass& renderpass() { return _renderpass; }
 		u32 width() const { return _window.width(); }
 		u32 height() const { return _window.height(); }
-		u32 current_frame() const { return _frame_index; }
-		bool is_recreating() const { return _is_recreating; }
-		bool is_resized() const { return _framebuffer_resized; }
+		constexpr u32 current_frame() const { return _frame_index; }
+		constexpr bool is_recreating() const { return _is_recreating; }
+		constexpr bool is_resized() const { return _framebuffer_resized; }
 		/*constexpr const VkViewport& viewport() const {}
 		constexpr const VkRect2D& scissor_rect() const {}*/
 
@@ -73,11 +73,11 @@ namespace primal::graphics::vulkan
 		u32								_frame_index{ 0 };
 
 		// Function Pointers
-		PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
-		PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
-		PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-		PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
-		PFN_vkQueuePresentKHR fpQueuePresentKHR;
+		PFN_vkCreateSwapchainKHR		fpCreateSwapchainKHR;
+		PFN_vkDestroySwapchainKHR		fpDestroySwapchainKHR;
+		PFN_vkGetSwapchainImagesKHR		fpGetSwapchainImagesKHR;
+		PFN_vkAcquireNextImageKHR		fpAcquireNextImageKHR;
+		PFN_vkQueuePresentKHR			fpQueuePresentKHR;
 	};
 	
 	swapchain_details get_swapchain_details(VkPhysicalDevice device, VkSurfaceKHR surface);

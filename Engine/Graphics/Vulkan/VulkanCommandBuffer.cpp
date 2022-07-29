@@ -9,14 +9,14 @@ namespace primal::graphics::vulkan
 		
 		VkCommandBufferAllocateInfo info{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 		info.commandPool = cmd_pool;
-		info.level = primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY; // secondary buffers must be used iwth another buffer, not on it's own
+		info.level = primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY; // secondary buffers must be used with another buffer, not on it's own
 		info.commandBufferCount = 1;
 		info.pNext = nullptr;
 
-		cmd_buffer.state = CMD_NOT_ALLOCATED;
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_NOT_ALLOCATED;
 		VkResult result{ VK_SUCCESS };
-		VkCall(vkAllocateCommandBuffers(device, &info, &cmd_buffer.cmd_buffer), "Failed to allocate command buffer...");
-		cmd_buffer.state = CMD_READY;
+		VkCall(result = vkAllocateCommandBuffers(device, &info, &cmd_buffer.cmd_buffer), "Failed to allocate command buffer...");
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_READY;
 
 		MESSAGE("Command buffer allocated");
 
@@ -24,20 +24,20 @@ namespace primal::graphics::vulkan
 	}
 
 	void
-	free_cmd_buffer(VkDevice device, VkCommandPool cmd_pool, vulkan_cmd_buffer& cmd_buffer)
+		free_cmd_buffer(VkDevice device, VkCommandPool cmd_pool, vulkan_cmd_buffer& cmd_buffer)
 	{
 		vkFreeCommandBuffers(device, cmd_pool, 1, &cmd_buffer.cmd_buffer);
 
 		cmd_buffer.cmd_buffer = nullptr;
-		cmd_buffer.state = CMD_NOT_ALLOCATED;
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_NOT_ALLOCATED;
 	}
 
 	void
-	begin_cmd_buffer(vulkan_cmd_buffer& cmd_buffer, bool single_use, bool renderpass_continue, bool simultaneous_use)
+		begin_cmd_buffer(vulkan_cmd_buffer& cmd_buffer, bool single_use, bool renderpass_continue, bool simultaneous_use)
 	{
 		VkCommandBufferBeginInfo info{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		info.flags = 0;
-		
+
 		// NOTE: Single use cannot be used more than once, and will be reset and recorded again between each submission
 		//		 Renderpass continue indicates it is a secondary buffer entirely inside a render pass. It is ignored for primary buffers
 		//		 Simultaneous use can be resubmitted to a queue while it is in the pending state. and recorded into multiple primary command buffers
@@ -50,28 +50,28 @@ namespace primal::graphics::vulkan
 
 		VkResult result{ VK_SUCCESS };
 		VkCall(result = vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &info), "Failed to begin command buffer...");
-		cmd_buffer.state = CMD_RECORDING;
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_RECORDING;
 	}
 
 	void
-	end_cmd_buffer(vulkan_cmd_buffer& cmd_buffer)
+		end_cmd_buffer(vulkan_cmd_buffer& cmd_buffer)
 	{
 		VkResult result{ VK_SUCCESS };
 		// TODO: Check to make sure command buffer is in a state where it can be ended prior to ending
 		VkCall(result = vkEndCommandBuffer(cmd_buffer.cmd_buffer), "Failed to end command buffer...");
-		cmd_buffer.state = CMD_RECORDING_ENDED;
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_RECORDING_ENDED;
 	}
 
 	void
-	update_cmd_buffer_submitted(vulkan_cmd_buffer& cmd_buffer)
+		update_cmd_buffer_submitted(vulkan_cmd_buffer& cmd_buffer)
 	{
-		cmd_buffer.state = CMD_SUBMITTED;
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_SUBMITTED;
 	}
 
 	void
-	reset_cmd_buffer(vulkan_cmd_buffer& cmd_buffer)
+		reset_cmd_buffer(vulkan_cmd_buffer& cmd_buffer)
 	{
-		cmd_buffer.state = CMD_READY;
+		cmd_buffer.cmd_state = vulkan_cmd_buffer::CMD_READY;
 	}
 
 	// This must be a single use, primary, command buffer

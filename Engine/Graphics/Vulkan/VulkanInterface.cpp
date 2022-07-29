@@ -21,7 +21,7 @@ namespace primal::graphics::vulkan {
         /*pi.resources.add_submesh = content::submesh::add;
         pi.resources.remove_submesh = content::submesh::remove;*/
 
-        pi.platform = graphics_platform::vulkan_api;
+        pi.platform = graphics_platform::vulkan_1;
     }
 
 }

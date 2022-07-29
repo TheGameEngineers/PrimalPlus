@@ -20,68 +20,69 @@
 #include <vulkan/vulkan_xlib.h>
 #endif // _WIN32
 
-namespace primal::graphics::vulkan
-{
-	constexpr u32 frame_buffer_count{ 3 };
+#pragma comment(lib, "vulkan-1.lib")
 
-	enum vulkan_command_buffer_state
-	{
-		CMD_READY,
-		CMD_RECORDING,
-		CMD_IN_RENDER_PASS,
-		CMD_RECORDING_ENDED,
-		CMD_SUBMITTED,
-		CMD_NOT_ALLOCATED
-	};
 
-	enum render_pass_state
-	{
-		READY,
-		RECORDING,
-		IN_RENDER_PASS,
-		RECORDING_ENDED,
-		SUBMITTED,
-		NOT_ALLOCATED
-	};
-	
-	struct vulkan_image
-	{
-		VkImage			image;
-		VkDeviceMemory	memory;
-		VkImageView		view;
-		u32				width;
-		u32				height;
-	};
+namespace primal::graphics::vulkan {
 
-	struct vulkan_renderpass
-	{
-		VkRenderPass	render_pass;
-		math::v4		render_area;
-		math::v4		clear_color;
-		f32				depth;
-		u32				stencil;
-	};
+    constexpr u32 frame_buffer_count{ 3 };
 
-	struct vulkan_cmd_buffer
-	{
-		VkCommandBuffer				cmd_buffer;
-		vulkan_command_buffer_state	state;
-	};
+    struct vulkan_image
+    {
+        VkImage			image;
+        VkDeviceMemory	memory;
+        VkImageView		view;
+        u32				width;
+        u32				height;
+    };
 
-	struct vulkan_framebuffer
-	{
-		VkFramebuffer				framebuffer;
-		u32							attach_count;
-		utl::vector<VkImageView>	attachments;
-		vulkan_renderpass*			renderpass;
-	};
+    struct vulkan_renderpass
+    {
+        enum state : u32 {
+            READY,
+            RECORDING,
+            IN_RENDER_PASS,
+            RECORDING_ENDED,
+            SUBMITTED,
+            NOT_ALLOCATED
+        };
 
-	struct vulkan_fence
-	{
-		VkFence	fence;
-		bool	signaled;
-	};
-}
+        VkRenderPass	render_pass;
+        math::u32v4		render_area;
+        math::v4		clear_color;
+        f32				depth;
+        u32				stencil;
+    };
+
+    struct vulkan_cmd_buffer
+    {
+        enum state : u32 {
+            CMD_READY,
+            CMD_RECORDING,
+            CMD_IN_RENDER_PASS,
+            CMD_RECORDING_ENDED,
+            CMD_SUBMITTED,
+            CMD_NOT_ALLOCATED
+        };
+
+        VkCommandBuffer cmd_buffer;
+        state           cmd_state;
+    };
+
+    struct vulkan_framebuffer
+    {
+        VkFramebuffer				framebuffer;
+        u32							attach_count;
+        utl::vector<VkImageView>	attachments;
+        vulkan_renderpass*			renderpass;
+    };
+
+    struct vulkan_fence
+    {
+        VkFence	fence;
+        bool	signaled;
+    };
+    }
 
 #ifdef _DEBUG
 #ifndef VkCall
@@ -139,17 +140,17 @@ __builtin_trap()
 #ifndef GET_INSTANCE_PROC_ADDR
 #define GET_INSTANCE_PROC_ADDR(inst, entry)											\
 {																					\
-	fp##entry = (PFN_vk##entry)vkGetInstanceProcAddr(inst, "vk"#entry);				\
-	if (!fp##entry)																	\
-		throw std::runtime_error("vkGetInstanceProcAddr failed to find vk"#entry);	\
+    fp##entry = (PFN_vk##entry)vkGetInstanceProcAddr(inst, "vk"#entry);				\
+    if (!fp##entry)																	\
+        throw std::runtime_error("vkGetInstanceProcAddr failed to find vk"#entry);	\
 }
 #endif // !GET_INSTANCE_PROC_ADDR
 
 #ifndef GET_DEVICE_PROC_ADDR
 #define GET_DEVICE_PROC_ADDR(dev, entry)										    \
 {																				    \
-	fp##entry = (PFN_vk##entry)vkGetDeviceProcAddr(dev, "vk"#entry);			    \
-	if (!fp##entry)																    \
-		throw std::runtime_error("vkGetDeviceProcAddr failed to find vk"#entry);    \
+    fp##entry = (PFN_vk##entry)vkGetDeviceProcAddr(dev, "vk"#entry);			    \
+    if (!fp##entry)																    \
+        throw std::runtime_error("vkGetDeviceProcAddr failed to find vk"#entry);    \
 }
 #endif // !GET_DEVICE_PROC_ADDR

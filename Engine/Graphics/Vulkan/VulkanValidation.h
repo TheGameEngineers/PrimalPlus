@@ -6,7 +6,7 @@ namespace primal::graphics::vulkan
 {
 	// List of validation layers to use
 	// VK_LAYER_KHRONOS_validation = All standard validation layers
-	const utl::vector<const char*> validation_layers{ 1, "VK_LAYER_KHRONOS_validation" };
+	constexpr const char* validation_layers[]{ "VK_LAYER_KHRONOS_validation" };
 
 	// Only enable validation layers if in debug mode
 #ifdef _DEBUG
@@ -15,7 +15,7 @@ namespace primal::graphics::vulkan
 	constexpr bool enable_validation_layers{ false };
 #endif
 
-	bool
+	inline bool
 	validation_layer_supported()
 	{
 		uint32_t layer_count{ 0 };
@@ -43,7 +43,7 @@ namespace primal::graphics::vulkan
 	}
 
 	// Callback function for validation debugging (will be called when validation information record)
-	static VKAPI_ATTR VkBool32 VKAPI_CALL 
+	inline VKAPI_ATTR VkBool32 VKAPI_CALL 
 	debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type,
 				   const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data)
 	{
@@ -58,7 +58,7 @@ namespace primal::graphics::vulkan
 		return VK_FALSE;
 	}
 
-	VkResult
+	inline VkResult
 	create_debug_utils_messenger_ext(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* create_info,
 									 const VkAllocationCallbacks* allocator, VkDebugUtilsMessengerEXT* debug_messenger)
 	{
@@ -76,7 +76,7 @@ namespace primal::graphics::vulkan
 		}
 	}
 
-	void
+	inline void
 	destroy_debug_utils_messenger_ext(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks* allocator)
 	{
 		// Get function pointer to requested function, then cast to function pointer for vkDestroyDebugUtilsMessengerEXT
