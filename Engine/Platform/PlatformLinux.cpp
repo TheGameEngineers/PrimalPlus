@@ -62,7 +62,7 @@ set_window_fullscreen(window_id id, bool is_fullscreen)
             xev.xclient.data.l[1] = fullscreen;
             xev.xclient.data.l[2] = 0;
             XSendEvent(info.display, DefaultRootWindow(info.display), false,
-                       SubstructureNotifyMask | SubstructureRedirectMask, &xev);
+                SubstructureNotifyMask | SubstructureRedirectMask, &xev);
         }
         else
         {
@@ -78,7 +78,7 @@ set_window_fullscreen(window_id id, bool is_fullscreen)
             xev.xclient.data.l[1] = fullscreen;
             xev.xclient.data.l[2] = 0;
             XSendEvent(info.display, DefaultRootWindow(info.display), false,
-                       SubstructureNotifyMask | SubstructureRedirectMask, &xev);
+                SubstructureNotifyMask | SubstructureRedirectMask, &xev);
         }
     }
 }

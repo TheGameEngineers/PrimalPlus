@@ -3,5 +3,5 @@
 
 namespace primal::graphics::vulkan
 {
-	bool vulkan_success(VkResult result);
+bool vulkan_success(VkResult result);
 }
