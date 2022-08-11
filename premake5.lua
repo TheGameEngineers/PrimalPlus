@@ -40,6 +40,7 @@ project "ContentTools"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
+    removeconfigurations { "Release", "Debug" }
 
     filter "system:windows"
         systemversion "latest"
@@ -83,6 +84,8 @@ project "EngineDLL"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
+    dependson "Engine"
+    removeconfigurations { "Release", "Debug" }
 
     filter "system:windows"
         systemversion "latest"
@@ -104,16 +107,21 @@ project "EngineTest"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
+    dependson "Engine"
+    removeconfigurations { "ReleaseEditor", "DebugEditor" }
 
     filter "system:windows"
         systemversion "latest"
         defines "_CONSOLE"
+        prebuildcommands "powershell -ExecutionPolicy Bypass -File $(SolutionDir)GetDXC.ps1 $(SolutionDir)packages/DirectXShaderCompiler\
+        xcopy /Y /D $(SolutionDir)packages/DirectXShaderCompiler/bin/x64/dxcompiler.dll $(OutDir)\
+        xcopy /Y /D $(SolutionDir)packages/DirectXShaderCompiler/bin/x64/dxil.dll $(OutDir)"
 
 -- This should only build in DebugEditor and ReleaseEditor configurations
 project "PrimalEditor"
     location "PrimalEditor"
     kind "WindowedApp"
     language "C#"
-    dotnetframework "net6.0" -- test this for VS2022 and .Net 6.0
-    --dotnetframework "netcoreapp3.1" -- this is causing an error... it doesn't play nice with platforms right now
+    dotnetframework "net6.0" -- net6.0 for .NET 6.0, netcoreapp3.1 for .NET Core 3.1
     targetdir (outputdir)
+    removeconfigurations { "Release", "Debug" }
