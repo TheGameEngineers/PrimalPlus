@@ -9,20 +9,22 @@ workspace "Primal"
         symbols "On"
     
     filter "configurations:DebugEditor"
-        defines { "DEBUG" }
+        defines { "DEBUG", "USE_WITH_EDITOR" }
         symbols "On"
     
     filter "configurations:Release"
         defines { "NDEBUG" }
-        optimize "Speed"
+        optimize "On"
+        omitframepointer "On"
     
     filter "configurations:ReleaseEditor"
-        defines { "NDEBUG" }
-        optimize "Speed"
+        defines { "NDEBUG" , "USE_WITH_EDITOR" }
+        optimize "On"
+        omitframepointer "On"
     filter{}
 
-outputdir = "%{wks.location}/%{cfg.platform}/%{cfg.buildcfg}"
-intermediatesdir = "%{cfg.platform}/%{cfg.buildcfg}"
+   outputdir = "$(SolutionDir)$(Platform)/$(Configuration)/"
+   intermediatesdir="$(Platform)/$(Configuration)/"
 
 -- This should only build in DebugEditor and ReleaseEditor configurations
 project "ContentTools" 
@@ -31,12 +33,13 @@ project "ContentTools"
     language "C++"
     cppdialect "C++17"
     staticruntime "Off"
+    targetname "$(ProjectName)"
     targetdir (outputdir)
     objdir (intermediatesdir)
     files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
-    includedirs { "%{wks.location}/Engine/Common", "C:/Program Files/Autodesk/FBX/FBX SDK/2020.2/include" }
+    includedirs { "$(SolutionDir)Engine", "$(SolutionDir)Engine/Common", "C:/Program Files/Autodesk/FBX/FBX SDK/2020.2/include" }
+    rtti "Off"
     floatingpoint "Fast"
-    callingconvention "FastCall"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
@@ -53,20 +56,21 @@ project "Engine"
     language "C++"
     cppdialect "C++17"
     staticruntime "Off"
+    targetname "$(ProjectName)"
     targetdir (outputdir)
     objdir (intermediatesdir)
     files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
-    includedirs { "%{prj.name}", "%{prj.name}/Common", "$(VULKAN_SDK)/Include" }
+    includedirs { "$(SolutionDir)Engine", "$(SolutionDir)Engine/Common", "$(VULKAN_SDK)/Include" }
     libdirs "$(VULKAN_SDK)/Lib"
+    rtti "Off"
     floatingpoint "Fast"
-    callingconvention "FastCall"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
 
     filter "system:windows"
         systemversion "latest"
-        defines { "_LIB", "USE_WITH_EDITOR" }
+        defines { "_LIB" }
 
 -- This should only build in DebugEditor and ReleaseEditor configurations
 project "EngineDLL"
@@ -75,12 +79,13 @@ project "EngineDLL"
     language "C++"
     cppdialect "C++17"
     staticruntime "Off"
+    targetname "$(ProjectName)"
     targetdir (outputdir)
     objdir (intermediatesdir)
     files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
-    includedirs "%{wks.location}/Engine/Common"
+    includedirs {"$(SolutionDir)Engine", "$(SolutionDir)Engine/Common"}
+    rtti "Off"	
     floatingpoint "Fast"
-    callingconvention "FastCall"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
@@ -98,12 +103,14 @@ project "EngineTest"
     language "C++"
     cppdialect "C++17"
     staticruntime "Off"
+    targetname "$(ProjectName)"
     targetdir (outputdir)
     objdir (intermediatesdir)
     files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
-    includedirs { "%{wks.location}/Engine/Common", "%{wks.location}/Engine" }
+    includedirs { "$(SolutionDir)Engine", "$(SolutionDir)Engine/Common" }
+    libdirs "$(OutDir)"
+    rtti "Off"	
     floatingpoint "Fast"
-    callingconvention "FastCall"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
@@ -113,9 +120,10 @@ project "EngineTest"
     filter "system:windows"
         systemversion "latest"
         defines "_CONSOLE"
-        prebuildcommands "powershell -ExecutionPolicy Bypass -File $(SolutionDir)GetDXC.ps1 $(SolutionDir)packages/DirectXShaderCompiler\
-        xcopy /Y /D $(SolutionDir)packages/DirectXShaderCompiler/bin/x64/dxcompiler.dll $(OutDir)\
-        xcopy /Y /D $(SolutionDir)packages/DirectXShaderCompiler/bin/x64/dxil.dll $(OutDir)"
+        prebuildcommands {"powershell -ExecutionPolicy Bypass -File $(SolutionDir)GetDXC.ps1 $(SolutionDir)packages\\DirectXShaderCompiler",
+                          "xcopy /Y /D $(SolutionDir)packages\\DirectXShaderCompiler\\bin\\x64\\dxcompiler.dll $(OutDir)",
+                          "xcopy /Y /D $(SolutionDir)packages\\DirectXShaderCompiler\\bin\\x64\\dxil.dll $(OutDir)" }
+        prebuildmessage "If packages\\DirectXShaderCompiler\\ folder doesn't exist or is empty then download the latest release of DXC"
 
 -- This should only build in DebugEditor and ReleaseEditor configurations
 project "PrimalEditor"
