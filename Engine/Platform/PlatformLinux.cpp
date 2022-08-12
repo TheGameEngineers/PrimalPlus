@@ -1,9 +1,9 @@
+#ifdef __linux__
 #include "Platform.h"
 #include "PlatformTypes.h"
 
 namespace primal::platform {
 
-#ifdef __linux__
 namespace {
 // Linux OS specific window info
 struct window_info
@@ -196,6 +196,7 @@ remove_window(window_id id)
     get_from_id(id).is_closed = true;
     XDestroyWindow(info.display, info.wnd);
     windows.remove(id);
+}
 }
 
 #include "IncludeWindowCpp.h"
