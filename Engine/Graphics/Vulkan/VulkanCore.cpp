@@ -1,3 +1,5 @@
+// Copyright (c) Contributors of Primal+
+// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #include "VulkanCore.h"
 #include "VulkanValidation.h"
 #include "VulkanSurface.h"

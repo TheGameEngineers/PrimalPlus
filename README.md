@@ -21,7 +21,7 @@ Take the following steps to build Primal+ for Microsoft Windows.
 7. Open `Primal.sln` using Visual Studio 2022 or later.
 
 ## Caveats
-We're using Premake 5.0 to generate C++ project files. However, it doesn't cover all options offered by Visual Studio C++ compiler and linker. For example, at this time, it's not possible to turn on multithreaded code generation, so compilation will take longer. Of course, you can tweak the project settings afterwards to set any options that are missing.
+We're using Premake 5.0 to generate C++ project files. However, it doesn't cover all options offered by Visual Studio C++ compiler and linker. When necessary, you can tweak the project settings afterwards to set any options that are missing.
 
 # How to contribute
 In order to make it as easy as possible for everyone to integrate the code in their engine, contributions should use the same folder structure and naming conventions as Primal Engine's code base. We're looking forward to seeing your contributions.

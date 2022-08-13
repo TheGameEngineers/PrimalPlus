@@ -1,10 +1,15 @@
+-- Copyright (c) Contributors of Primal+
+-- Distributed under the MIT license. See the LICENSE file in the project root for more information.
 workspace "Primal"
     configurations { "Debug", "Release", "DebugEditor", "ReleaseEditor" }
     platforms "x64"
     architecture "x64"
+    defines "PRIMAL_PLUS"
+    flags "MultiProcessorCompile"
 
     if _TARGET_OS == "windows" then
         startproject "PrimalEditor"
+        linkoptions {"/ignore:4099"}
     else
         startproject "EngineTest"
     end
@@ -21,11 +26,13 @@ workspace "Primal"
         defines "NDEBUG"
         optimize "On"
         omitframepointer "On"
+        flags {"LinkTimeOptimization", "NoBufferSecurityCheck", "NoRuntimeChecks"}
     
     filter "configurations:ReleaseEditor"
         defines { "NDEBUG" , "USE_WITH_EDITOR" }
         optimize "On"
         omitframepointer "On"
+        flags {"LinkTimeOptimization", "NoBufferSecurityCheck", "NoRuntimeChecks"}
 
     if _TARGET_OS == "linux" then
         toolset "gcc"
@@ -106,6 +113,7 @@ if _TARGET_OS == "windows" then
         objdir (intermediatesdir)
         files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
         includedirs {"$(SolutionDir)Engine", "$(SolutionDir)Engine/Common"}
+        libdirs {"$(OutDir)", "$(VULKAN_SDK)/Lib"}
         rtti "Off"	
         floatingpoint "Fast"
         conformancemode "On"
@@ -129,7 +137,7 @@ project "EngineTest"
     if _TARGET_OS == "windows" then
         targetname "$(ProjectName)"
         includedirs { "$(SolutionDir)Engine", "$(SolutionDir)Engine/Common" }
-        libdirs "$(OutDir)"
+        libdirs {"$(OutDir)", "$(VULKAN_SDK)/Lib"}
         systemversion "latest"
         defines "_CONSOLE"
     else
