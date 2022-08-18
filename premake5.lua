@@ -98,6 +98,7 @@ project "Engine"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
+	nuget "Microsoft.Direct3D.D3D12:1.606.3"
 
 -- This should only build in DebugEditor and ReleaseEditor configurations, and therefore only build in
 -- the Windows environment
