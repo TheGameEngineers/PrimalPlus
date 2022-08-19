@@ -20,6 +20,16 @@ Take the following steps to build Primal+ for Microsoft Windows.
 6. Run `GenerateProjectFiles.bat`
 7. Open `Primal.sln` using Visual Studio 2022 or later.
 
+## Linux
+Take the following steps to build Primal+ for Linux.
+
+1. Make sure you have GCC installed on your machine. 
+2. Follow steps 1 - 5 from the Windows section above.
+3. Run `GenerateProjectFiles.sh`
+4. Makefiles will now be generated. Simply enter the `make` command in the root folder to build all configurations, or browse in your editor of choice.
+
+Note: The Editor is currently Windows only, so this will only build the engine, and the engine test.
+
 ## Caveats
 We're using Premake 5.0 to generate C++ project files. However, it doesn't cover all options offered by Visual Studio C++ compiler and linker. When necessary, you can tweak the project settings afterwards to set any options that are missing.
 
