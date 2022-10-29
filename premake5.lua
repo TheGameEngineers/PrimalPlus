@@ -97,6 +97,14 @@ project "Engine"
     conformancemode "On"
     exceptionhandling "Off"
     warnings "Extra"
+    nuget "Microsoft.Direct3D.D3D12:1.606.3"
+    if _ACTION == "vs2022" then
+	    require('vstudio')
+        premake.override(premake.vstudio.vc2010, "project", function(base, prj)    
+	    base(prj)
+	    premake.w('<Import Project="..\\packages\\Microsoft.Direct3D.D3D12.1.606.3\\build\\native\\Microsoft.Direct3D.D3D12.props" Condition="Exists(\'..\\packages\\Microsoft.Direct3D.D3D12.1.606.3\\build\\native\\Microsoft.Direct3D.D3D12.props\')" />')
+        end)
+    end
 
 -- This should only build in DebugEditor and ReleaseEditor configurations, and therefore only build in
 -- the Windows environment
