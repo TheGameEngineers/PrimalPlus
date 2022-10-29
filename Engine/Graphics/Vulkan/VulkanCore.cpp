@@ -1,5 +1,7 @@
 // Copyright (c) Contributors of Primal+
 // Distributed under the MIT license. See the LICENSE file in the project root for more information.
+#define VOLK_IMPLEMENTATION 
+
 #include "VulkanCore.h"
 #include "VulkanValidation.h"
 #include "VulkanSurface.h"
@@ -566,6 +568,11 @@ initialize()
 {
     if (instance) shutdown();
 
+    if (volkInitialize() != VK_SUCCESS)
+    {
+        return failed_init();
+    }
+
     if (enable_validation_layers && !validation_layer_supported())
     {
         MESSAGE("Validation layers requested, but not available...");
@@ -631,6 +638,8 @@ initialize()
     if (result != VK_SUCCESS) return failed_init();
 
     MESSAGE("Vulkan instance created");
+
+    volkLoadInstance(instance);
 
     // Now that we have an instance, if enable_validation_layers, we can create the debug messenger
     if (enable_validation_layers)
@@ -803,7 +812,7 @@ surface_height(surface_id id)
 }
 
 void
-render_surface(surface_id id)
+render_surface(surface_id id, frame_info info)
 {
     if (gfx_command.begin_frame(&surfaces[id]))
     {
