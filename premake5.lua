@@ -83,7 +83,6 @@ project "Engine"
     if _TARGET_OS == "windows" then
         targetname "$(ProjectName)"
         includedirs { "$(SolutionDir)Engine", "$(SolutionDir)Engine/Common", "$(VULKAN_SDK)/Include" }
-        libdirs "$(VULKAN_SDK)/Lib"
         systemversion "latest"
         defines "_LIB"
     else
@@ -121,7 +120,7 @@ if _TARGET_OS == "windows" then
         objdir (intermediatesdir)
         files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
         includedirs {"$(SolutionDir)Engine", "$(SolutionDir)Engine/Common"}
-        libdirs {"$(OutDir)", "$(VULKAN_SDK)/Lib"}
+        libdirs "$(OutDir)"
         rtti "Off"	
         floatingpoint "Fast"
         conformancemode "On"
@@ -145,7 +144,7 @@ project "EngineTest"
     if _TARGET_OS == "windows" then
         targetname "$(ProjectName)"
         includedirs { "$(SolutionDir)Engine", "$(SolutionDir)Engine/Common" }
-        libdirs {"$(OutDir)", "$(VULKAN_SDK)/Lib"}
+        libdirs "$(OutDir)"
         systemversion "latest"
         defines "_CONSOLE"
     else

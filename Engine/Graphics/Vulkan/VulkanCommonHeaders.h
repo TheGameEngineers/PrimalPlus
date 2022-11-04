@@ -5,8 +5,8 @@
 #include "CommonHeaders.h"
 #include "Graphics/Renderer.h"
 
-#include <vulkan/vulkan.h>
 #ifdef _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif // NOMINMAX
@@ -14,16 +14,16 @@
 #define WIN_32_LEAN_AND_MEAN
 #endif // WIN_32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <vulkan/vulkan_win32.h>
 #include <wrl.h>
 #elif __linux__
+#define VK_USE_PLATFORM_XLIB_KHR
 #include <iostream>
 #include <X11/Xlib.h>
 #include <vulkan/vulkan_xlib.h>
 #endif // _WIN32
 
-#pragma comment(lib, "vulkan-1.lib")
-
+// NOTE: volk comes with Vulkan SDK.
+#include <volk/volk.h>
 
 namespace primal::graphics::vulkan {
 
