@@ -13,8 +13,9 @@ set_platform_interface(graphics_platform platform, platform_interface& pi)
     switch (platform)
     {
     case graphics_platform::direct3d12:
+        #if defined (_WIN64)
         d3d12::get_platform_interface(pi);
-        break;
+        #endif
     case graphics_platform::vulkan_1:
         vulkan::get_platform_interface(pi);
         break;
@@ -25,4 +26,5 @@ set_platform_interface(graphics_platform platform, platform_interface& pi)
     assert(pi.platform == platform);
     return true;
 }
+
 }

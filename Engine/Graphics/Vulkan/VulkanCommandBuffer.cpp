@@ -2,8 +2,8 @@
 // Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #include "VulkanCommandBuffer.h"
 
-namespace primal::graphics::vulkan
-{
+namespace primal::graphics::vulkan {
+
 vulkan_cmd_buffer
 allocate_cmd_buffer(VkDevice device, VkCommandPool cmd_pool, bool primary)
 {
@@ -108,4 +108,5 @@ end_cmd_buffer_single_use(VkDevice device, VkCommandPool cmd_pool, vulkan_cmd_bu
     // Then free the single use command buffer
     free_cmd_buffer(device, cmd_pool, cmd_buffer);
 }
+
 }

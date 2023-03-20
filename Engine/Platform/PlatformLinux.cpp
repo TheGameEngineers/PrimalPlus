@@ -1,17 +1,19 @@
 // Copyright (c) Contributors of Primal+
 // Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #ifdef __linux__
+
 #include "Platform.h"
 #include "PlatformTypes.h"
+#include "Input/InputLinux.h"
 
 namespace primal::platform {
-
 namespace {
+    
 // Linux OS specific window info
 struct window_info
 {
     Window wnd{};
-    Display *display{ nullptr };
+    Display* display{ nullptr };
     s32 left;
     s32 top;
     s32 width;
@@ -29,7 +31,6 @@ get_from_id(window_id id)
     return windows[id];
 }
 
-// Linux specific window class functions
 void
 resize_window(window_id id, u32 width, u32 height)
 {
@@ -45,7 +46,7 @@ resize_window(window_id id, u32 width, u32 height)
 void
 set_window_fullscreen(window_id id, bool is_fullscreen)
 {
-    window_info &info{ get_from_id(id) };
+    window_info& info{ get_from_id(id) };
     if (info.is_fullscreen != is_fullscreen)
     {
         info.is_fullscreen = is_fullscreen;
@@ -107,9 +108,9 @@ void
 set_window_caption(window_id id, const wchar_t* caption)
 {
     window_info& info{ get_from_id(id) };
-    size_t out_size = (sizeof(caption) * sizeof(wchar_t)) + 1;
-    char title[out_size];
-    wcstombs(title, caption, out_size);
+    size_t outSize = (sizeof(caption) * sizeof(wchar_t)) + 1;
+    char title[outSize];
+    wcstombs(title, caption, outSize);
     XStoreName(info.display, info.wnd, title);
 }
 
@@ -135,11 +136,11 @@ set_window_closed(window_id id)
 }
 } // anonymous namespace
 
-Window
+window
 create_window(const window_init_info* const init_info /*= nullptr*/, void* disp /*= nullptr*/)
 {
     // Cache a casted pointer of the display to save on casting later
-    Display* display{ (Display *)disp };
+    Display* display{ (Display*)disp };
 
     window_handle parent{ init_info ? init_info->parent : &(DefaultRootWindow(display)) };
     if (parent == nullptr)
@@ -160,7 +161,7 @@ create_window(const window_init_info* const init_info /*= nullptr*/, void* disp 
         ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
     attributes.colormap = colormap;
 
-    // Create an instance of window_info
+    // Create an instance of WindowInfo
     window_info info{};
     info.left = (init_info && init_info->left) ? init_info->left : 0; // generally, the X window manager overrides
     info.top = (init_info && init_info->top) ? init_info->top : 0;	   // the starting top left coords, so default is 0,0
@@ -169,7 +170,7 @@ create_window(const window_init_info* const init_info /*= nullptr*/, void* disp 
     info.display = display;
 
     // check for initial info, use defaults if none given
-    const wchar_t* caption{ (init_info && init_info->caption) ? init_info->caption : L"Havana Game" };
+    const wchar_t* caption{ (init_info && init_info->caption) ? init_info->caption : L"primal Game" };
     size_t out_size = (sizeof(caption) * sizeof(wchar_t)) + 1;
     char title[out_size];
     wcstombs(title, caption, out_size);
@@ -194,11 +195,18 @@ create_window(const window_init_info* const init_info /*= nullptr*/, void* disp 
 void
 remove_window(window_id id)
 {
-    window_info &info{ get_from_id(id) };
+    window_info& info{ get_from_id(id) };
     get_from_id(id).is_closed = true;
     XDestroyWindow(info.display, info.wnd);
     windows.remove(id);
 }
+
+void
+process_input_message(XEvent xev, Display* display)
+{
+    input::process_input_message(xev, display);
+}
+
 }
 
 #include "IncludeWindowCpp.h"

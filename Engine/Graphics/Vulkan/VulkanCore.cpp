@@ -1,6 +1,6 @@
 // Copyright (c) Contributors of Primal+
 // Distributed under the MIT license. See the LICENSE file in the project root for more information.
-#define VOLK_IMPLEMENTATION 
+#define VOLK_IMPLEMENTATION
 
 #include "VulkanCore.h"
 #include "VulkanValidation.h"
@@ -11,10 +11,9 @@
 #include "VulkanHelpers.h"
 #include <set>
 
-namespace primal::graphics::vulkan::core
-{
-namespace
-{
+namespace primal::graphics::vulkan::core {
+namespace {
+    
 class vulkan_command
 {
 public:
@@ -48,14 +47,14 @@ public:
 
         // Semaphores & Fences
         {
-            _image_available.resize(frame_buffer_count);
-            _render_finished.resize(frame_buffer_count);
-            _draw_fences.resize(frame_buffer_count);
+            _image_available.resize(_swapchain_image_count);
+            _render_finished.resize(_swapchain_image_count);
+            _draw_fences.resize(_swapchain_image_count);
             VkSemaphoreCreateInfo s_info{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 
             // NOTE: fences here are created in an already signaled state, which indicates to Vulkan API that the frame
             //		 has already been rendered. This will prevent them from waiting indefinitely to render first frame.
-            for (u32 i{ 0 }; i < (frame_buffer_count); ++i)
+            for (u32 i{ 0 }; i < (_swapchain_image_count); ++i)
             {
                 if (vkCreateSemaphore(device, &s_info, nullptr, &_image_available[i]) != VK_SUCCESS ||
                     vkCreateSemaphore(device, &s_info, nullptr, &_render_finished[i]) != VK_SUCCESS ||
@@ -198,7 +197,7 @@ public:
     {
         vkDeviceWaitIdle(core::logical_device());
 
-        for (u32 i{ 0 }; i < (frame_buffer_count); ++i)
+        for (u32 i{ 0 }; i < (_swapchain_image_count); ++i)
         {
             vkDestroySemaphore(core::logical_device(), _render_finished[i], nullptr);
             vkDestroySemaphore(core::logical_device(), _image_available[i], nullptr);
@@ -213,10 +212,9 @@ public:
     }
 
     [[nodiscard]] constexpr VkCommandPool const command_pool() const { return _cmd_pool; }
-    //[[nodiscard]] constexpr u32 frame_index() const { return _frame_index; }
 
 private:
-    void create_command_buffers(VkDevice device, u32 queue_family_idx)
+    void create_command_buffers(VkDevice device, [[maybe_unused]] u32 queue_family_idx)
     {
         _cmd_buffers.resize(_swapchain_image_count);
 
@@ -556,13 +554,6 @@ failed_init()
 }
 } // anonymous namespace
 
-// Function Pointers
-// NOTE: some of these will move into VulkanSurface
-PFN_vkGetPhysicalDeviceSurfaceSupportKHR		fpGetPhysicalDeviceSurfaceSupportKHR;
-PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR	fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
-PFN_vkGetPhysicalDeviceSurfaceFormatsKHR		fpGetPhysicalDeviceSurfaceFormatsKHR;
-PFN_vkGetPhysicalDeviceSurfacePresentModesKHR	fpGetPhysicalDeviceSurfacePresentModesKHR;
-
 bool
 initialize()
 {
@@ -637,9 +628,9 @@ initialize()
     VkCall(result = vkCreateInstance(&info, nullptr, &instance), "Failed to create a Vulkan instance...");
     if (result != VK_SUCCESS) return failed_init();
 
-    MESSAGE("Vulkan instance created");
-
     volkLoadInstance(instance);
+
+    MESSAGE("Vulkan instance created");
 
     // Now that we have an instance, if enable_validation_layers, we can create the debug messenger
     if (enable_validation_layers)
@@ -652,11 +643,6 @@ initialize()
 
         MESSAGE("Vulkan validation layer created");
     }
-
-    GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfaceSupportKHR);
-    GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfaceCapabilitiesKHR);
-    GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfaceFormatsKHR);
-    GET_INSTANCE_PROC_ADDR(instance, GetPhysicalDeviceSurfacePresentModesKHR);
 
     MESSAGE("Vulkan initialized successfully");
 
@@ -782,7 +768,7 @@ depth_format()
 surface
 create_surface(platform::window window)
 {
-    surface_id id{ surfaces.add(window) };
+    surface_id id{ surfaces.add(window) }; // TODO: this causes an error with std::vector "attempting to reference a deleted function"
     surfaces[id].create(instance);
     return surface{ id };
 }
@@ -812,7 +798,7 @@ surface_height(surface_id id)
 }
 
 void
-render_surface(surface_id id, frame_info info)
+render_surface(surface_id id, [[maybe_unused]] frame_info info)
 {
     if (gfx_command.begin_frame(&surfaces[id]))
     {
@@ -823,4 +809,5 @@ render_surface(surface_id id, frame_info info)
         gfx_command.end_frame(&surfaces[id]);
     }
 }
+
 }

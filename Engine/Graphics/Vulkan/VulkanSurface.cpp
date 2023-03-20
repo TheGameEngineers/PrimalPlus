@@ -5,10 +5,9 @@
 #include "VulkanResources.h"
 #include "VulkanRenderPass.h"
 
-namespace primal::graphics::vulkan
-{
-namespace
-{
+namespace primal::graphics::vulkan {
+namespace {
+
 VkSurfaceFormatKHR
 choose_best_surface_format(const utl::vector<VkSurfaceFormatKHR>& formats)
 {
@@ -97,13 +96,6 @@ vulkan_surface::create(VkInstance instance)
 {
     create_surface(instance);
     core::create_device(_surface);
-
-    GET_DEVICE_PROC_ADDR(core::logical_device(), CreateSwapchainKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), DestroySwapchainKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), GetSwapchainImagesKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), AcquireNextImageKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), QueuePresentKHR);
-
     create_swapchain();
     create_render_pass();
     recreate_framebuffers();
@@ -111,7 +103,7 @@ vulkan_surface::create(VkInstance instance)
 }
 
 void
-vulkan_surface::present(VkSemaphore image_available, VkSemaphore render_finished, VkFence fence, VkQueue presentation_queue)
+vulkan_surface::present([[maybe_unused]] VkSemaphore image_available, VkSemaphore render_finished, [[maybe_unused]] VkFence fence, VkQueue presentation_queue)
 {
     // Present image
     VkPresentInfoKHR info{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -184,7 +176,7 @@ vulkan_surface::create_swapchain()
     VkExtent2D extent{ choose_swap_extent(_swapchain.details.surface_capabilities, _window.width(), _window.height()) };
 
     u32 images_in_flight = _swapchain.details.surface_capabilities.minImageCount + 1;
-    // NOTE: At this point, in a typical situation, images_in_flight will be 2, allowing us to use a triple buffer.
+    // NOTE: At this point, in a typical situation, images_in_flight will be at least 2, allowing us to use a triple buffer.
     //		 However, there will be a rare occasion that triple buffering is not supported. If that is the case, we
     //		 will need to set images_in_flight to the max image count supported. If maxImageCount == 0, there is no max limit.
     if (_swapchain.details.surface_capabilities.maxImageCount > 0 && _swapchain.details.surface_capabilities.maxImageCount < images_in_flight)
@@ -393,4 +385,5 @@ get_swapchain_details(VkPhysicalDevice device, VkSurfaceKHR surface)
 
     return details;
 }
+
 }

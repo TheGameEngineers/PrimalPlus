@@ -1,10 +1,7 @@
--- Copyright (c) Contributors of Primal+
--- Distributed under the MIT license. See the LICENSE file in the project root for more information.
 workspace "Primal"
     configurations { "Debug", "Release", "DebugEditor", "ReleaseEditor" }
     platforms "x64"
     architecture "x64"
-    defines "PRIMAL_PLUS"
     flags "MultiProcessorCompile"
 
     if _TARGET_OS == "windows" then
@@ -15,11 +12,11 @@ workspace "Primal"
     end
 
     filter "configurations:Debug"
-        defines "DEBUG"
+        defines "_DEBUG"
         symbols "On"
     
     filter "configurations:DebugEditor"
-        defines { "DEBUG", "USE_WITH_EDITOR" }
+        defines { "_DEBUG", "USE_WITH_EDITOR" }
         symbols "On"
     
     filter "configurations:Release"
@@ -88,6 +85,7 @@ project "Engine"
     else
         targetname "%{prj.name}"
         includedirs { "%{wks.location}/Engine", "%{wks.location}/Engine/Common" }
+        links { "X11" }
     end
     targetdir (outputdir)
     objdir (intermediatesdir)
@@ -151,6 +149,7 @@ project "EngineTest"
         targetname "%{prj.name}"
         includedirs { "%{wks.location}/Engine", "%{wks.location}/Engine/Common" }
         libdirs (outputdir)
+        links { "X11", "Engine" }
     end
     targetdir (outputdir)
     objdir (intermediatesdir)

@@ -3,15 +3,13 @@
 #include "VulkanResources.h"
 #include "VulkanCore.h"
 
-namespace primal::graphics::vulkan
-{
-namespace
-{
+namespace primal::graphics::vulkan {
+namespace {
 
 } // anonymous namespace
 
 bool
-create_image(VkDevice device, VkImageType type, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+create_image(VkDevice device, [[maybe_unused]] VkImageType type, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
     VkMemoryPropertyFlags memory_flags, bool create_view, VkImageAspectFlags view_aspect_flags, vulkan_image& image)
 {
     VkResult result{ VK_SUCCESS };
@@ -152,4 +150,5 @@ destroy_framebuffer(VkDevice device, vulkan_framebuffer& framebuffer)
 
     MESSAGE("Destroyed framebuffer");
 }
+
 }

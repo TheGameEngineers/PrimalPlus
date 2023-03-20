@@ -3,8 +3,14 @@
 #pragma once
 #include "VulkanCommonHeaders.h"
 
-namespace primal::graphics::vulkan
-{
+namespace primal::graphics::vulkan {
+    
+#if USE_STL_VECTOR
+#define CONSTEXPR
+#else
+#define CONSTEXPR constexpr
+#endif
+    
 struct swapchain_details
 {
     VkSurfaceCapabilitiesKHR		surface_capabilities;	// Surface properties, e.g. image size/extent
@@ -46,15 +52,13 @@ public:
     constexpr void set_renderpass_render_area(math::u32v4 render_area) { _renderpass.render_area = render_area; }
     constexpr void set_renderpass_clear_color(math::v4 clear_color) { _renderpass.clear_color = clear_color; }
 
-    [[nodiscard]] constexpr VkFramebuffer& current_framebuffer() { return _framebuffers[_image_index].framebuffer; }
-    [[nodiscard]] constexpr vulkan_renderpass& renderpass() { return _renderpass; }
+    [[nodiscard]] CONSTEXPR VkFramebuffer& current_framebuffer() { return _framebuffers[_image_index].framebuffer; }
+    [[nodiscard]] CONSTEXPR vulkan_renderpass& renderpass() { return _renderpass; }
     u32 width() const { return _window.width(); }
     u32 height() const { return _window.height(); }
     constexpr u32 current_frame() const { return _frame_index; }
     constexpr bool is_recreating() const { return _is_recreating; }
     constexpr bool is_resized() const { return _framebuffer_resized; }
-    /*constexpr const VkViewport& viewport() const {}
-    constexpr const VkRect2D& scissor_rect() const {}*/
 
 private:
     void create_surface(VkInstance instance);
@@ -73,14 +77,10 @@ private:
     bool							_is_recreating{ false };
     u32								_image_index{ 0 };
     u32								_frame_index{ 0 };
-
-    // Function Pointers
-    PFN_vkCreateSwapchainKHR		fpCreateSwapchainKHR;
-    PFN_vkDestroySwapchainKHR		fpDestroySwapchainKHR;
-    PFN_vkGetSwapchainImagesKHR		fpGetSwapchainImagesKHR;
-    PFN_vkAcquireNextImageKHR		fpAcquireNextImageKHR;
-    PFN_vkQueuePresentKHR			fpQueuePresentKHR;
 };
 
+#undef CONSTEXPR
+
 swapchain_details get_swapchain_details(VkPhysicalDevice device, VkSurfaceKHR surface);
+
 }
