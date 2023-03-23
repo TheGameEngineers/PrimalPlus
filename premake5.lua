@@ -14,7 +14,7 @@ workspace "Primal"
         startproject "EngineTest"
     end
 
-    ilter "configurations:Debug"
+    filter "configurations:Debug"
         defines "DEBUG"
         symbols "On"
     
@@ -93,7 +93,9 @@ project "Engine"
     targetdir (outputdir)
     objdir (intermediatesdir)
     files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
-    if _TARGET_OS != "windows" then
+    if _TARGET_OS == "windows" then
+        -- leave as is
+    else
         removefiles { "%{prj.name}/Graphics/Direct3D12/**.cpp" }
     end
     rtti "Off"
