@@ -1,7 +1,10 @@
+-- Copyright (c) Contributors of Primal+
+-- Distributed under the MIT license. See the LICENSE file in the project root for more information.
 workspace "Primal"
     configurations { "Debug", "Release", "DebugEditor", "ReleaseEditor" }
     platforms "x64"
     architecture "x64"
+    defines "PRIMAL_PLUS"
     flags "MultiProcessorCompile"
 
     if _TARGET_OS == "windows" then
@@ -11,12 +14,12 @@ workspace "Primal"
         startproject "EngineTest"
     end
 
-    filter "configurations:Debug"
-        defines "_DEBUG"
+    ilter "configurations:Debug"
+        defines "DEBUG"
         symbols "On"
     
     filter "configurations:DebugEditor"
-        defines { "_DEBUG", "USE_WITH_EDITOR" }
+        defines { "DEBUG", "USE_WITH_EDITOR" }
         symbols "On"
     
     filter "configurations:Release"
@@ -90,6 +93,9 @@ project "Engine"
     targetdir (outputdir)
     objdir (intermediatesdir)
     files { "%{prj.name}/**.h", "%{prj.name}/**.cpp" }
+    if _TARGET_OS != "windows" then
+        removefiles { "%{prj.name}/Graphics/Direct3D12/**.cpp" }
+    end
     rtti "Off"
     floatingpoint "Fast"
     conformancemode "On"
