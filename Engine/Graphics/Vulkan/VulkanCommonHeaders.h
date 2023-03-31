@@ -1,5 +1,3 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #pragma once
 
 #ifdef _WIN32
@@ -16,15 +14,15 @@
 #elif __linux__
 #define VK_USE_PLATFORM_XLIB_KHR
 #include <iostream>
-#include <X11/Xlib.h>
 #include <volk.h>
-//#include <vulkan/vulkan_xlib.h>
+#include "../Platform/X11Manager.h"
 #endif // _WIN32
 
 #include "CommonHeaders.h"
 #include "Graphics/Renderer.h"
 
 namespace primal::graphics::vulkan {
+
 struct vulkan_image
 {
     VkImage			image;
@@ -82,6 +80,7 @@ struct vulkan_fence
     VkFence	fence;
     bool	signaled;
 };
+
 }
 
 #ifdef _DEBUG

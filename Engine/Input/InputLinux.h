@@ -1,14 +1,11 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #pragma once
 #ifdef __linux__
 
-#include <X11/Xlib.h>
-#include <X11/keysym.h>
+#include "../Platform/LinuxWindowManager.h"
 
 namespace primal::input {
-    
-void process_input_message(XEvent xev, Display* display);
+
+void process_input_message(const platform::event* const ev, Display* display);
 
 }
 

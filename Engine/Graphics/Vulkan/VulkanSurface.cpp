@@ -1,13 +1,12 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #include "VulkanSurface.h"
 #include "VulkanCore.h"
 #include "VulkanResources.h"
 #include "VulkanRenderPass.h"
 
 namespace primal::graphics::vulkan {
+    
 namespace {
-
+    
 VkSurfaceFormatKHR
 choose_best_surface_format(const utl::vector<VkSurfaceFormatKHR>& formats)
 {
@@ -155,10 +154,12 @@ vulkan_surface::create_surface(VkInstance instance)
     create_info.hwnd = (HWND)_window.handle();
 
     VkCall(vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, &_surface), "Failed to create a surface...");
+#elif __linux__ && PLATFORM_WAYLAND
+    // TODO: Wayland Vulkan goes here
 #elif __linux__
     VkXlibSurfaceCreateInfoKHR create_info{ VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
-    create_info.dpy = (Display*)_window.display();
-    create_info.window = *(Window*)_window.handle();
+    create_info.dpy = platform::get_display();
+    create_info.window = *(platform::window_handle)_window.handle();
 
     VkCall(vkCreateXlibSurfaceKHR(instance, &create_info, nullptr, &_surface), "Failed to create a surface...");
 #endif // _WIN32
@@ -274,7 +275,7 @@ void
 vulkan_surface::create_render_pass()
 {
     _renderpass = renderpass::create_renderpass(core::logical_device(), _swapchain.image_format, core::depth_format(),
-        { 0, 0, _window.width(), _window.height() }, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, 0);
+                                                { 0, 0, _window.width(), _window.height() }, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, 0);
 
 }
 

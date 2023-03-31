@@ -25,8 +25,10 @@ Take the following steps to build Primal+ for Linux.
 
 1. Make sure you have GCC installed on your machine. 
 2. Follow steps 1 - 5 from the Windows section above.
-3. Run `GenerateProjectFiles.sh`
-4. Makefiles will now be generated. Simply enter the `make` command in the root folder to build all configurations, or browse in your editor of choice.
+3. You may need to enter `chmod +x GenerateProjectFiles.sh` and `chmod +x W_GenerateProjectFiles.sh`
+4. Run `GenerateProjectFiles.sh` to generate Makefiles for use with XLib
+5. Run `W_GenerateProjectFiles.sh` to generate Makefiles for use with Wayland (NOTE: Wayland is not implemented yet, this will be coming soon)
+6. Makefiles will now be generated. Simply enter the `make` command in the root folder to build all configurations, or browse in your editor of choice.
 
 Note: The Editor is currently Windows only, so this will only build the engine, and the engine test.
 

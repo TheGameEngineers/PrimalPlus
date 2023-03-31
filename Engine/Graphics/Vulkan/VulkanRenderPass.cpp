@@ -1,5 +1,3 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #include "VulkanRenderPass.h"
 #include "VulkanCore.h"
 
@@ -124,7 +122,7 @@ destroy_renderpass(VkDevice device, vulkan_renderpass& renderpass)
 }
 
 void
-begin_renderpass(VkCommandBuffer cmd_buffer, vulkan_cmd_buffer::state state, vulkan_renderpass& renderpass, VkFramebuffer frame_buffer)
+begin_renderpass(VkCommandBuffer cmd_buffer, vulkan_cmd_buffer::state& state, vulkan_renderpass& renderpass, VkFramebuffer frame_buffer)
 {
     VkClearValue values[2]{};
     values[0].color.float32[0] = renderpass.clear_color.x;
@@ -149,7 +147,7 @@ begin_renderpass(VkCommandBuffer cmd_buffer, vulkan_cmd_buffer::state state, vul
 }
 
 void
-end_renderpass(VkCommandBuffer cmd_buffer, vulkan_cmd_buffer::state state, [[maybe_unused]] vulkan_renderpass& renderpass)
+end_renderpass(VkCommandBuffer cmd_buffer, vulkan_cmd_buffer::state& state, [[maybe_unused]] vulkan_renderpass& renderpass)
 {
     vkCmdEndRenderPass(cmd_buffer);
     state = vulkan_cmd_buffer::CMD_RECORDING;

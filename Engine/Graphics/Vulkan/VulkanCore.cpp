@@ -1,5 +1,3 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #define VOLK_IMPLEMENTATION
 
 #include "VulkanCore.h"
@@ -12,6 +10,7 @@
 #include <set>
 
 namespace primal::graphics::vulkan::core {
+
 namespace {
     
 class vulkan_command
@@ -313,7 +312,7 @@ struct queue_family_indices
     u32 presentation_family{ u32_invalid_id };		// Location of Presentation Queue Family
 
     // Check if queue families are valid
-    bool is_valid() { return graphics_family >= 0 && presentation_family >= 0; }
+    bool is_valid() { return graphics_family != u32_invalid_id && presentation_family != u32_invalid_id; }
 } queue_family_indices;
 
 struct device_group
@@ -552,6 +551,7 @@ failed_init()
     shutdown();
     return false;
 }
+
 } // anonymous namespace
 
 bool
