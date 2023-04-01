@@ -18,6 +18,7 @@ set_platform_interface(graphics_platform platform, platform_interface& pi)
         #else
         return false;
         #endif
+        break;
     case graphics_platform::vulkan_1:
         vulkan::get_platform_interface(pi);
         break;

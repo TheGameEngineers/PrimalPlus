@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #include "X11Manager.h"
 
 namespace primal::platform {
@@ -245,3 +247,5 @@ fetch_id(window_type wnd)
 }
 
 }
+
+#endif
