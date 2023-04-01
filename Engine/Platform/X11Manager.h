@@ -168,5 +168,7 @@ struct event
 using lwin_proc = void(*)(const event* const);
 
 Display* get_display();
+void add_id(window_type wnd, u32 id);
+u32 fetch_id(window_type wnd);
 
 }

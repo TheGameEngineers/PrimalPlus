@@ -60,45 +60,24 @@ win_proc(const platform::event* const ev)
 {
 	switch (ev->event_type)
 	{
-	case platform::event::configure_notify:
-	{
-		// Check if any of the windows resized
-		for (u32 i{ 0 }; i < _countof(_surfaces); ++i)
-		{
-			if (!_surfaces[i].window.is_valid()) continue;
-			if (*((platform::window_handle)_surfaces[i].window.handle()) == ev->window)
-			{
-				if (ev->width != _surfaces[i].window.width() || ev->height != _surfaces[i].window.height())
-				{
-					_surfaces[i].window.resize(ev->width, ev->height);
-				}
-			}
-		}
-	}
-	break;
 	case platform::event::client_message:
 	{
 		if (platform::window_close_received(ev))
 		{
-			// Find which window was sent the close event, and call function
-			for (u32 i{ 0 }; i < _countof(_surfaces); ++i)
-			{
-				if (!_surfaces[i].window.is_valid()) continue;
-				if (*((platform::window_handle)_surfaces[i].window.handle()) == ev->window)
-				{
-					destroy_render_surface(_surfaces[i]);
-					break;
-				}
-			}
-
 			// Check if all windows are closed, and exit application if so
 			bool all_closed{ true };
-			for (u32 i{ 0 }; i < _countof(_surfaces); i++)
+			for (u32 i{ 0 }; i < _countof(_surfaces); ++i)
 			{
-				if (!_surfaces[i].window.is_valid()) continue;
-				if (!_surfaces[i].window.is_closed())
+				if (_surfaces[i].window.is_valid())
 				{
-					all_closed = false;
+					if (_surfaces[i].window.is_closed())
+					{
+						destroy_render_surface(_surfaces[i]);
+					}
+					else
+					{
+						all_closed = false;
+					}
 				}
 			}
 			if (all_closed)
@@ -113,7 +92,7 @@ win_proc(const platform::event* const ev)
 		// NOTE: This represents "alt + enter"
 		if (ev->mod_key == 0x18 && ev->keycode == 36)
 		{
-			for (u32 i{ 0 }; i < _countof(_surfaces); i++)
+			for (u32 i{ 0 }; i < _countof(_surfaces); ++i)
 			{
 				if (!_surfaces[i].window.is_valid()) continue;
 				if (*((platform::window_handle)_surfaces[i].window.handle()) == ev->window)
