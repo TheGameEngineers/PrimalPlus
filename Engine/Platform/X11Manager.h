@@ -126,6 +126,7 @@ enum key_code
     key_f12 = XK_F12,
     key_numlock = XK_Num_Lock,
     key_scrolllock = XK_Scroll_Lock,
+    key_tilde = XK_asciitilde,
 };
 
 struct event

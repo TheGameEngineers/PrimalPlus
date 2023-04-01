@@ -261,8 +261,19 @@ vulkan_surface::create_swapchain()
     }
 
     // Create depthbuffer image and view
-    if (!create_image(core::logical_device(), VK_IMAGE_TYPE_2D, _swapchain.extent.width, _swapchain.extent.height, core::depth_format(), VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true, VK_IMAGE_ASPECT_DEPTH_BIT, _swapchain.depth_attachment))
+    image_init_info image_info{};
+    image_info.device = core::logical_device();
+    image_info.image_type = VK_IMAGE_TYPE_2D;
+    image_info.width = _swapchain.extent.width;
+    image_info.height = _swapchain.extent.height;
+    image_info.format = core::depth_format();
+    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image_info.usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    image_info.memory_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    image_info.create_view = true;
+    image_info.view_aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    if (!create_image(&image_info, _swapchain.depth_attachment))
         return false;
 
 
@@ -315,7 +326,7 @@ vulkan_surface::recreate_framebuffers()
         attachments[0] = _swapchain.images[i].image_view;
         attachments[1] = _swapchain.depth_attachment.view;
 
-        if (!create_framebuffer(core::logical_device(), _renderpass, _window.width(), _window.height(), attach_count, attachments, _framebuffers[i])) return false;
+        if (!create_framebuffer(core::logical_device(), _renderpass, _window.width(), _window.height(), attach_count, attachments.data(), _framebuffers[i])) return false;
     }
 
     return true;
