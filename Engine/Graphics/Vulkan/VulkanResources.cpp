@@ -3,46 +3,43 @@
 #include "VulkanResources.h"
 #include "VulkanCore.h"
 
-namespace primal::graphics::vulkan
-{
-namespace
-{
+namespace primal::graphics::vulkan {
+namespace {
 
 } // anonymous namespace
 
 bool
-create_image(VkDevice device, VkImageType type, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-    VkMemoryPropertyFlags memory_flags, bool create_view, VkImageAspectFlags view_aspect_flags, vulkan_image& image)
+create_image(const image_init_info* const init_info, vulkan_image& image)
 {
     VkResult result{ VK_SUCCESS };
-    image.width = width;
-    image.height = height;
+    image.width = init_info->width;
+    image.height = init_info->height;
 
     // Create image
     {
         VkImageCreateInfo info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
         info.imageType = VK_IMAGE_TYPE_2D;					// TODO: This should be configurable
-        info.extent.width = width;
-        info.extent.height = height;
+        info.extent.width = init_info->width;
+        info.extent.height = init_info->height;
         info.extent.depth = 1;								// TODO: should be configurable and supported
         info.mipLevels = 1;									// TODO: should be configurable, and need to support mip maps
         info.arrayLayers = 1;								// TODO: should be configurable and offer image layer support
-        info.format = format;
-        info.tiling = tiling;
+        info.format = init_info->format;
+        info.tiling = init_info->tiling;
         info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        info.usage = usage;
+        info.usage = init_info->usage_flags;
         info.samples = VK_SAMPLE_COUNT_1_BIT;				// TODO: make configurable
         info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;		// TODO: make configurable
 
-        VkCall(result = vkCreateImage(device, &info, nullptr, &image.image), "Failed to create image...");
+        VkCall(result = vkCreateImage(init_info->device, &info, nullptr, &image.image), "Failed to create image...");
         if (result != VK_SUCCESS) return false;
     }
 
     // Get memory requirements for image
     VkMemoryRequirements memory_reqs;
-    vkGetImageMemoryRequirements(device, image.image, &memory_reqs);
+    vkGetImageMemoryRequirements(init_info->device, image.image, &memory_reqs);
 
-    s32 index{ core::find_memory_index(memory_reqs.memoryTypeBits, memory_flags) };
+    s32 index{ core::find_memory_index(memory_reqs.memoryTypeBits, init_info->memory_flags) };
     if (index == -1)
     {
         ERROR_MSSG("The required memory type was not found...");
@@ -54,18 +51,18 @@ create_image(VkDevice device, VkImageType type, u32 width, u32 height, VkFormat 
         info.allocationSize = memory_reqs.size;
         info.memoryTypeIndex = index;
 
-        VkCall(result = vkAllocateMemory(device, &info, nullptr, &image.memory), "Failed to allocate memory for image...");
+        VkCall(result = vkAllocateMemory(init_info->device, &info, nullptr, &image.memory), "Failed to allocate memory for image...");
         if (result != VK_SUCCESS) return false;
     }
 
     // TODO: make memory offset configurable, for use in things like image pooling.
-    VkCall(result = vkBindImageMemory(device, image.image, image.memory, 0), "Failed to bind image memory...");
+    VkCall(result = vkBindImageMemory(init_info->device, image.image, image.memory, 0), "Failed to bind image memory...");
     if (result != VK_SUCCESS) return false;
 
-    if (create_view)
+    if (init_info->create_view)
     {
         image.view = nullptr;
-        if (!create_image_view(device, format, &image, view_aspect_flags)) return false;
+        if (!create_image_view(init_info->device, init_info->format, &image, init_info->view_aspect_flags)) return false;
     }
 
     return true;
@@ -112,7 +109,7 @@ destroy_image(VkDevice device, vulkan_image* image)
 }
 
 bool
-create_framebuffer(VkDevice device, vulkan_renderpass& renderpass, u32 width, u32 height, u32 attach_count, utl::vector<VkImageView> attachments, vulkan_framebuffer& framebuffer)
+create_framebuffer(VkDevice device, vulkan_renderpass& renderpass, u32 width, u32 height, u32 attach_count, VkImageView* attachments, vulkan_framebuffer& framebuffer)
 {
     framebuffer.attachments.resize(attach_count);
     for (u32 i{ 0 }; i < attach_count; ++i)
@@ -152,4 +149,5 @@ destroy_framebuffer(VkDevice device, vulkan_framebuffer& framebuffer)
 
     MESSAGE("Destroyed framebuffer");
 }
+
 }

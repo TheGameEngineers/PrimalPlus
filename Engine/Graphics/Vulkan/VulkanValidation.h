@@ -4,8 +4,8 @@
 
 #include "VulkanCommonHeaders.h"
 
-namespace primal::graphics::vulkan
-{
+namespace primal::graphics::vulkan {
+    
 // List of validation layers to use
 // VK_LAYER_KHRONOS_validation = All standard validation layers
 constexpr const char* validation_layers[]{ "VK_LAYER_KHRONOS_validation" };
@@ -46,8 +46,8 @@ validation_layer_supported()
 
 // Callback function for validation debugging (will be called when validation information record)
 inline VKAPI_ATTR VkBool32 VKAPI_CALL
-debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type,
-    const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data)
+debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT message_type,
+    const VkDebugUtilsMessengerCallbackDataEXT* callback_data, [[maybe_unused]] void* user_data)
 {
     if (message_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
@@ -89,4 +89,5 @@ destroy_debug_utils_messenger_ext(VkInstance instance, VkDebugUtilsMessengerEXT 
         func(instance, debug_messenger, allocator);
     }
 }
+
 }

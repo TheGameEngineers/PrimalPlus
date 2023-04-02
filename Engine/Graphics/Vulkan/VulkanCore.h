@@ -4,8 +4,8 @@
 
 #include "VulkanCommonHeaders.h"
 
-namespace primal::graphics::vulkan::core
-{
+namespace primal::graphics::vulkan::core {
+	
 bool initialize();
 void shutdown();
 
@@ -27,4 +27,5 @@ void resize_surface(surface_id id, u32 width, u32 height);
 u32 surface_width(surface_id id);
 u32 surface_height(surface_id id);
 void render_surface(surface_id id, frame_info info);
+
 }

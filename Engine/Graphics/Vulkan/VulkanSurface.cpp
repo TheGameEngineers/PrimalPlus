@@ -1,14 +1,12 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #include "VulkanSurface.h"
 #include "VulkanCore.h"
 #include "VulkanResources.h"
 #include "VulkanRenderPass.h"
 
-namespace primal::graphics::vulkan
-{
-namespace
-{
+namespace primal::graphics::vulkan {
+    
+namespace {
+    
 VkSurfaceFormatKHR
 choose_best_surface_format(const utl::vector<VkSurfaceFormatKHR>& formats)
 {
@@ -97,13 +95,6 @@ vulkan_surface::create(VkInstance instance)
 {
     create_surface(instance);
     core::create_device(_surface);
-
-    GET_DEVICE_PROC_ADDR(core::logical_device(), CreateSwapchainKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), DestroySwapchainKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), GetSwapchainImagesKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), AcquireNextImageKHR);
-    GET_DEVICE_PROC_ADDR(core::logical_device(), QueuePresentKHR);
-
     create_swapchain();
     create_render_pass();
     recreate_framebuffers();
@@ -111,7 +102,7 @@ vulkan_surface::create(VkInstance instance)
 }
 
 void
-vulkan_surface::present(VkSemaphore image_available, VkSemaphore render_finished, VkFence fence, VkQueue presentation_queue)
+vulkan_surface::present([[maybe_unused]] VkSemaphore image_available, VkSemaphore render_finished, [[maybe_unused]] VkFence fence, VkQueue presentation_queue)
 {
     // Present image
     VkPresentInfoKHR info{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -163,10 +154,12 @@ vulkan_surface::create_surface(VkInstance instance)
     create_info.hwnd = (HWND)_window.handle();
 
     VkCall(vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, &_surface), "Failed to create a surface...");
+#elif __linux__ && PLATFORM_WAYLAND
+    // TODO: Wayland Vulkan goes here
 #elif __linux__
     VkXlibSurfaceCreateInfoKHR create_info{ VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
-    create_info.dpy = (Display*)_window.display();
-    create_info.window = *(Window*)_window.handle();
+    create_info.dpy = platform::get_display();
+    create_info.window = *(platform::window_handle)_window.handle();
 
     VkCall(vkCreateXlibSurfaceKHR(instance, &create_info, nullptr, &_surface), "Failed to create a surface...");
 #endif // _WIN32
@@ -184,7 +177,7 @@ vulkan_surface::create_swapchain()
     VkExtent2D extent{ choose_swap_extent(_swapchain.details.surface_capabilities, _window.width(), _window.height()) };
 
     u32 images_in_flight = _swapchain.details.surface_capabilities.minImageCount + 1;
-    // NOTE: At this point, in a typical situation, images_in_flight will be 2, allowing us to use a triple buffer.
+    // NOTE: At this point, in a typical situation, images_in_flight will be at least 2, allowing us to use a triple buffer.
     //		 However, there will be a rare occasion that triple buffering is not supported. If that is the case, we
     //		 will need to set images_in_flight to the max image count supported. If maxImageCount == 0, there is no max limit.
     if (_swapchain.details.surface_capabilities.maxImageCount > 0 && _swapchain.details.surface_capabilities.maxImageCount < images_in_flight)
@@ -268,8 +261,19 @@ vulkan_surface::create_swapchain()
     }
 
     // Create depthbuffer image and view
-    if (!create_image(core::logical_device(), VK_IMAGE_TYPE_2D, _swapchain.extent.width, _swapchain.extent.height, core::depth_format(), VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true, VK_IMAGE_ASPECT_DEPTH_BIT, _swapchain.depth_attachment))
+    image_init_info image_info{};
+    image_info.device = core::logical_device();
+    image_info.image_type = VK_IMAGE_TYPE_2D;
+    image_info.width = _swapchain.extent.width;
+    image_info.height = _swapchain.extent.height;
+    image_info.format = core::depth_format();
+    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image_info.usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    image_info.memory_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    image_info.create_view = true;
+    image_info.view_aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    if (!create_image(&image_info, _swapchain.depth_attachment))
         return false;
 
 
@@ -282,7 +286,7 @@ void
 vulkan_surface::create_render_pass()
 {
     _renderpass = renderpass::create_renderpass(core::logical_device(), _swapchain.image_format, core::depth_format(),
-        { 0, 0, _window.width(), _window.height() }, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, 0);
+                                                { 0, 0, _window.width(), _window.height() }, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, 0);
 
 }
 
@@ -322,7 +326,7 @@ vulkan_surface::recreate_framebuffers()
         attachments[0] = _swapchain.images[i].image_view;
         attachments[1] = _swapchain.depth_attachment.view;
 
-        if (!create_framebuffer(core::logical_device(), _renderpass, _window.width(), _window.height(), attach_count, attachments, _framebuffers[i])) return false;
+        if (!create_framebuffer(core::logical_device(), _renderpass, _window.width(), _window.height(), attach_count, attachments.data(), _framebuffers[i])) return false;
     }
 
     return true;
@@ -393,4 +397,5 @@ get_swapchain_details(VkPhysicalDevice device, VkSurfaceKHR surface)
 
     return details;
 }
+
 }

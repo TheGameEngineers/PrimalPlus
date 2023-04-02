@@ -1,9 +1,4 @@
-// Copyright (c) Contributors of Primal+
-// Distributed under the MIT license. See the LICENSE file in the project root for more information.
 #pragma once
-
-#include "CommonHeaders.h"
-#include "Graphics/Renderer.h"
 
 #ifdef _WIN32
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -14,20 +9,19 @@
 #define WIN_32_LEAN_AND_MEAN
 #endif // WIN_32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <Volk/volk.h>
 #include <wrl.h>
 #elif __linux__
 #define VK_USE_PLATFORM_XLIB_KHR
 #include <iostream>
-#include <X11/Xlib.h>
-#include <vulkan/vulkan_xlib.h>
+#include <volk.h>
+#include "../Platform/X11Manager.h"
 #endif // _WIN32
 
-// NOTE: volk comes with Vulkan SDK.
-#include <volk/volk.h>
+#include "CommonHeaders.h"
+#include "Graphics/Renderer.h"
 
 namespace primal::graphics::vulkan {
-
-constexpr u32 frame_buffer_count{ 3 };
 
 struct vulkan_image
 {
@@ -40,7 +34,8 @@ struct vulkan_image
 
 struct vulkan_renderpass
 {
-    enum state : u32 {
+    enum state : u32
+    {
         READY,
         RECORDING,
         IN_RENDER_PASS,
@@ -58,7 +53,8 @@ struct vulkan_renderpass
 
 struct vulkan_cmd_buffer
 {
-    enum state : u32 {
+    enum state : u32
+    {
         CMD_READY,
         CMD_RECORDING,
         CMD_IN_RENDER_PASS,
@@ -84,6 +80,7 @@ struct vulkan_fence
     VkFence	fence;
     bool	signaled;
 };
+
 }
 
 #ifdef _DEBUG
@@ -134,25 +131,25 @@ OutputDebugStringA("\n");   \
 __debugbreak()
 #elif __linux__
 #define ERROR_MSSG(x)       \
-std::cout << x << std::endl \
+std::cout << x << std::endl;\
 __builtin_trap()
 #endif // _WIN32
 #endif // !ERROR_MSSG
 
 #ifndef GET_INSTANCE_PROC_ADDR
-#define GET_INSTANCE_PROC_ADDR(inst, entry)											\
-{																					\
-    fp##entry = (PFN_vk##entry)vkGetInstanceProcAddr(inst, "vk"#entry);				\
-    if (!fp##entry)																	\
-        throw std::runtime_error("vkGetInstanceProcAddr failed to find vk"#entry);	\
+#define GET_INSTANCE_PROC_ADDR(inst, entry)									\
+{																			\
+    fp##entry = (PFN_vk##entry)vkGetInstanceProcAddr(inst, "vk"#entry);		\
+    if (!fp##entry)															\
+        ERROR_MSSG("vkGetInstanceProcAddr failed to find vk"#entry);        \
 }
 #endif // !GET_INSTANCE_PROC_ADDR
 
 #ifndef GET_DEVICE_PROC_ADDR
-#define GET_DEVICE_PROC_ADDR(dev, entry)										    \
-{																				    \
-    fp##entry = (PFN_vk##entry)vkGetDeviceProcAddr(dev, "vk"#entry);			    \
-    if (!fp##entry)																    \
-        throw std::runtime_error("vkGetDeviceProcAddr failed to find vk"#entry);    \
+#define GET_DEVICE_PROC_ADDR(dev, entry)							        \
+{																	        \
+    fp##entry = (PFN_vk##entry)vkGetDeviceProcAddr(dev, "vk"#entry);        \
+    if (!fp##entry)													        \
+        ERROR_MSSG("vkGetDeviceProcAddr failed to find vk"#entry);          \
 }
 #endif // !GET_DEVICE_PROC_ADDR
