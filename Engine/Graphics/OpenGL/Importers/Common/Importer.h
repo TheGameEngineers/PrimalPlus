@@ -1,0 +1,15 @@
+#pragma once
+#include "../Image/BMP/BmpParser.h"
+#include "../Image/GIF/GifParser.h"
+#include "../Image/HEIF/HeifParser.h"
+#include "../Image/JPG/JpgParser.h"
+#include "../Image/PBM/PbmParser.h"
+#include "../Image/PGM/PgmParser.h"
+#include "../Image/PNG/PngParser.h"
+#include "../Image/PNM/PnmParser.h"
+#include "../Image/PPM/PpmParser.h"
+#include "../Image/SVG/SvgParser.h"
+#include "../Image/TGA/TgaParser.h"
+#include "../Image/TIF/TifParser.h"
+#include "../Image/WebP/WebpParser.h"
+unsigned char* Load(const char* filename, int* width, int* height, int* bpp, int desiredChannels);

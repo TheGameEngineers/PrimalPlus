@@ -3,7 +3,7 @@
 #include "GraphicsPlatformInterface.h"
 #include "Direct3D12\D3D12Interface.h"
 #include "Vulkan\VulkanInterface.h"
-
+#include "OpenGL\OpenglInterface.h"
 namespace primal::graphics {
 #include "GraphicsPlatform.h"
 
@@ -21,6 +21,9 @@ set_platform_interface(graphics_platform platform, platform_interface& pi)
         break;
     case graphics_platform::vulkan_1:
         vulkan::get_platform_interface(pi);
+        break;
+    case graphics_platform::opengl:
+        opengl::get_platform_interface(pi);
         break;
     default:
         return false;
