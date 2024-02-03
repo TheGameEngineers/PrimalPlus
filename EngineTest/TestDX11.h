@@ -497,7 +497,7 @@ private:
 
 	constexpr math::v3 rgb_to_color(u8 r, u8 g, u8 b) { return{ r / 255.f, g / 255.f, b / 255.f }; }
 
-	f32 random(f32 min = 0.f) { return std::max(min, rand() * inv_rand_max); }
+	f32 random(f32 min = 0.f) { return max(min, rand() * inv_rand_max); }
 
 	const f32 inv_rand_max{ 1.f / RAND_MAX };
 
