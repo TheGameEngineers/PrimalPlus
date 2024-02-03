@@ -9,6 +9,8 @@
 #elif TEST_RENDERER
 #include "TestRendererWin32.h"
 #include "TestRendererLinux.h"
+#elif TEST_RENDERER_DX11
+#include "TestDX11.h"
 #else
 #error One of the tests must be enabled
 #endif
