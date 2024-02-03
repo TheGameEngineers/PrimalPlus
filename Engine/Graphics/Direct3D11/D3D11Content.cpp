@@ -68,7 +68,7 @@ std::unordered_map<u64, id::id_type>				gs_map;
 utl::vector<ID3D11PixelShader*>						pixel_shaders;
 std::unordered_map<u64, id::id_type>				ps_map;
 
-//Maybe, just maybe, we might not even be needing this shit
+//Maybe, just maybe, we might not even be needing this stuff
 utl::vector<ID3D11BlendState1*>						blend_states;
 std::unordered_map<u64, id::id_type>				blend_state_map;
 utl::vector<ID3D11RasterizerState2*>				rasterizer_states;
