@@ -82,9 +82,6 @@ void compile_shaders_vs()
 	ID3DBlob* shader_blob{ nullptr };
 	ID3DBlob* error_blob{ nullptr };
 
-	utl::vector<u32> keys;
-	keys.emplace_back(tools::elements::elements_type::static_normal_texture);
-
 	UINT flags{ 0 };
 #if _DEBUG
 	flags |= D3DCOMPILE_DEBUG;
@@ -93,27 +90,46 @@ void compile_shaders_vs()
 	flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
-	HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", nullptr,
-		D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderVS", "vs_5_0", 0, 0, &shader_blob, &error_blob);
-	if (error_blob || FAILED(hr))
+	std::string defines[]{ "1", "3" };
+	utl::vector<u32> keys;
+	keys.emplace_back(tools::elements::elements_type::static_normal);
+	keys.emplace_back(tools::elements::elements_type::static_normal_texture);
+
+	utl::vector<std::wstring> extra_args{};
+	utl::vector<std::unique_ptr<u8[]>> vertex_shaders{};
+	utl::vector<const u8*> vertex_shader_pointers{};
+
+	for (u32 i{ 0 }; i < _countof(defines); ++i)
 	{
-		OutputDebugStringA((char*)error_blob->GetBufferPointer());
-		return;
+		D3D_SHADER_MACRO define[2]{};//Last one must be NULL
+		define[0].Name = "ELEMENTS_TYPE";
+		define[0].Definition = defines[i].c_str();
+
+		HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", &define[0],
+			D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderVS", "vs_5_0", 0, 0, &shader_blob, &error_blob);
+		if (error_blob || FAILED(hr))
+		{
+			OutputDebugStringA((char*)error_blob->GetBufferPointer());
+			return;
+		}
+		char hash[16]{ 0x092386 * i };//Random number as temporary hash
+
+		const u64 buffer_size{ sizeof(u64) + content::compiled_shader::hash_length + shader_blob->GetBufferSize() };
+		std::unique_ptr<u8[]> buffer{ std::make_unique<u8[]>(buffer_size) };
+		utl::blob_stream_writer blob{ buffer.get(), buffer_size };
+		blob.write(shader_blob->GetBufferSize());
+		blob.write(hash, content::compiled_shader::hash_length);
+		blob.write((u8*)shader_blob->GetBufferPointer(), shader_blob->GetBufferSize());
+
+		assert(buffer_size == blob.offset());
+
+		vertex_shaders.emplace_back(std::move(buffer));
+		vertex_shader_pointers.emplace_back(vertex_shaders.back().get());
+
+		shader_blob->Release();
 	}
-	char hash[16]{ 0x00 };
 
-	const u64 buffer_size{ sizeof(u64) + content::compiled_shader::hash_length + shader_blob->GetBufferSize() };
-	std::unique_ptr<u8[]> buffer{ std::make_unique<u8[]>(buffer_size) };
-	utl::blob_stream_writer blob{ buffer.get(), buffer_size };
-	blob.write(shader_blob->GetBufferSize());
-	blob.write(hash, content::compiled_shader::hash_length);
-	blob.write((u8*)shader_blob->GetBufferPointer(), shader_blob->GetBufferSize());
-
-	assert(buffer_size == blob.offset());
-
-	u8* b[]{ buffer.get() };
-
-	vs_id = content::add_shader_group(b, 1, keys.data());
+	vs_id = content::add_shader_group(vertex_shader_pointers.data(), (u32)vertex_shader_pointers.size(), keys.data());
 }
 
 void compile_shaders_ps()
@@ -124,7 +140,12 @@ void compile_shaders_ps()
 	utl::vector<u32> keys;
 	keys.emplace_back(tools::elements::elements_type::static_normal_texture);
 
-	HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", nullptr,
+	//Must be used so that the Elements array doesn't contain empty structs... Though it really isn't used
+	D3D_SHADER_MACRO define[2]{};//Last one must be NULL
+	define[0].Name = "ELEMENTS_TYPE";
+	define[0].Definition = "1";
+
+	HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", &define[0],
 		D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderPS", "ps_5_0", 0, 0, &shader_blob, &error_blob);
 	if (error_blob || FAILED(hr))
 	{
@@ -370,6 +391,7 @@ public:
 		generate_lights();
 
 		{
+			//IMPORTANT! Make sure you use the correct models here! 
 			auto _1 = std::thread{ [] { house_model_id = load_model("..\\..\\x64\\house_model.model"); } };
 			auto _2 = std::thread{ [] { plane_model_id = load_model("..\\..\\x64\\wood_model.model"); } };
 			auto _3 = std::thread{ [] { robot_model_id = load_model("..\\..\\x64\\robot_model.model"); } };
