@@ -93,7 +93,7 @@ void compile_shaders_vs()
 	flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
-	HRESULT hr = D3DCompileFromFile(L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", nullptr,
+	HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", nullptr,
 		D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderVS", "vs_5_0", 0, 0, &shader_blob, &error_blob);
 	if (error_blob || FAILED(hr))
 	{
@@ -124,7 +124,7 @@ void compile_shaders_ps()
 	utl::vector<u32> keys;
 	keys.emplace_back(tools::elements::elements_type::static_normal_texture);
 
-	HRESULT hr = D3DCompileFromFile(L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", nullptr,
+	HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", nullptr,
 		D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderPS", "ps_5_0", 0, 0, &shader_blob, &error_blob);
 	if (error_blob || FAILED(hr))
 	{
