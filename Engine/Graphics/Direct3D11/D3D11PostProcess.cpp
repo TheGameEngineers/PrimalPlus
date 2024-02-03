@@ -10,7 +10,7 @@
 
 namespace primal::graphics::d3d11::fx {
 namespace {
-#pragma region blur bullshit
+#pragma region blur stuff... No used for now
 constexpr const math::v4 kernel_disabled[9]{
 	{ -1.f, -1.f, 0.f, 0.f },
 	{ -1.f,  0.f, 0.f, 0.f },
