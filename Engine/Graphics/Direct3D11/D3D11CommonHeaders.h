@@ -49,7 +49,7 @@ struct d3d11_pipeline_state
 	ID3D11GeometryShader*		gs{ nullptr };
 	ID3D11PixelShader*			ps{ nullptr };
 
-	//Maybe, just maybe, we might not even be needing this shit
+	//Maybe, just maybe, we might not even be needing this stuff
 	ID3D11BlendState1*			blend_state{ nullptr };
 	ID3D11RasterizerState2*		rasterizer_state{ nullptr };
 	ID3D11SamplerState*			sampler_state{ nullptr };
