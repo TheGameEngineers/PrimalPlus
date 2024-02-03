@@ -26,11 +26,11 @@ constexpr u32 flags{ D3DCOMPILE_OPTIMIZATION_LEVEL3 };
 void* engine_shaders[engine_shader::count]{};
 engine_shader_info shaders_info[engine_shader::count]
 {
-	{ L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\FullScreenTriangle.hlsl", "FullScreenTriangleVS", shader_type::vertex, engine_shader::fullscreen_triangle_vs },
-	{ L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\FillColor.hlsl", "FillColorPS", shader_type::pixel, engine_shader::fill_color_ps },
-	{ L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\PostProcess.hlsl", "PostProcessPS", shader_type::pixel, engine_shader::post_process_ps },
-	{ L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\GridFrustums.hlsl", "GridFrustumsCS", shader_type::compute, engine_shader::grid_frustums_cs },
-	{ L"D:\\Primal\\Engine\\Graphics\\Direct3D11\\Shaders\\CullLights.hlsl", "CullLightsCS", shader_type::compute, engine_shader::light_culling_cs }
+	{ L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\FullScreenTriangle.hlsl", "FullScreenTriangleVS", shader_type::vertex, engine_shader::fullscreen_triangle_vs },
+	{ L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\FillColor.hlsl", "FillColorPS", shader_type::pixel, engine_shader::fill_color_ps },
+	{ L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\PostProcess.hlsl", "PostProcessPS", shader_type::pixel, engine_shader::post_process_ps },
+	{ L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\GridFrustums.hlsl", "GridFrustumsCS", shader_type::compute, engine_shader::grid_frustums_cs },
+	{ L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\CullLights.hlsl", "CullLightsCS", shader_type::compute, engine_shader::light_culling_cs }
 };
 
 void
