@@ -14,12 +14,27 @@ struct PixelOut
     float4 Color : SV_TARGET0;
 };
 
+#define ElementsTypeStaticNormal                            0x01
+#define ElementsTypeStaticNormalTexture                     0x03
+#define ElementsTypeStaticColor                             0x04
+#define ElementsTypeSkeletal                                0x08
+#define ElementsTypeSkeletalColor                           ElementsTypeSkeletal | ElementsTypeStaticColor
+#define ElementsTypeSkeletalNormal                          ElementsTypeSkeletal | ElementsTypeStaticNormal
+#define ElementsTypeSkeletalNormalColor                     ElementsTypeSkeletalNormal | ElementsTypeStaticColor
+#define ElementsTypeSkeletalNormalTexture                   ElementsTypeSkeletal | ElementsTypeStaticNormalTexture
+#define ElementsTypeSkeletalNormalTextureColor              ElementsTypeSkeletalNormalTexture | ElementsTypeStaticColor
+
 struct VertexElement
 {
-    uint ColorTSign;
-    uint Normal;
-    uint Tangent;
-    float2 UV;
+#if ELEMENTS_TYPE == ElementsTypeStaticNormal
+    uint                ColorTSign;
+    uint                Normal;
+#elif ELEMENTS_TYPE == ElementsTypeStaticNormalTexture
+    uint                ColorTSign;
+    uint                Normal;
+    uint                Tangent;
+    float2              UV;
+#endif
 };
 
 const static float InvIntervals = 2.f / ((1 << 16) - 1);
@@ -41,10 +56,27 @@ VertexOut TestShaderVS(in uint VertexIdx : SV_VertexID)
     float4 position = float4(VertexPositions[VertexIdx], 1.f);
     float4 worldPosition = mul(PerObjectBuffer.World, position);
    
+#if ELEMENTS_TYPE == ElementsTypeStaticNormal
+    uint signs = (element.ColorTSign >> 24) & 0xff;
+    float nSign = float(signs & 0x02) - 1.f;
+    
+    const uint nrm = element.Normal;
+    float3 normal;
+    normal.x = (nrm & 0x0000ffff) * InvIntervals - 1.f;
+    normal.y = (nrm >> 16) * InvIntervals - 1.f;
+    normal.z = sqrt(saturate(1.f - dot(normal.xy, normal.xy))) * nSign;
+    
+    vsOut.HomogeneousPosition = mul(PerObjectBuffer.WorldViewProjection, position);
+    vsOut.WorldPosition = worldPosition.xyz;
+    vsOut.WorldNormal = mul(normal, (float3x3)PerObjectBuffer.InvWorld).xyz;
+    vsOut.WorldTangent = 0.f;
+    vsOut.UV = 0.f;
+#elif ELEMENTS_TYPE == ElementsTypeStaticNormalTexture
+    
     uint signs = (element.ColorTSign >> 24) & 0xff;
     float nSign = float(signs & 0x02) - 1.f;
     float tSign = float((signs & 0x01) << 1) - 1.f;
-    
+
     const uint nrm = element.Normal;
     float3 normal;
     normal.x = (nrm & 0x0000ffff) * InvIntervals - 1.f;
@@ -56,13 +88,20 @@ VertexOut TestShaderVS(in uint VertexIdx : SV_VertexID)
     tangent.x = (tng & 0x0000ffff) * InvIntervals - 1.f;
     tangent.y = (tng >> 16) * InvIntervals - 1.f;
     tangent.z = sqrt(saturate(1.f - dot(tangent.xy, tangent.xy))) * tSign;
-    
+
     vsOut.HomogeneousPosition = mul(PerObjectBuffer.WorldViewProjection, position);
     vsOut.WorldPosition = worldPosition.xyz;
     vsOut.WorldNormal = mul(normal, (float3x3)PerObjectBuffer.InvWorld).xyz;
     vsOut.WorldTangent = mul(tangent, (float3x3)PerObjectBuffer.InvWorld).xyz;
     vsOut.UV = element.UV;
-
+#else
+#undef ELEMENTS_TYPE
+    vsOut.HomogeneousPosition = mul(PerObjectBuffer.WorldViewProjection, position);
+    vsOut.WorldPosition = worldPosition.xyz;
+    vsOut.WorldNormal = 0.f;
+    vsOut.WorldTangent = 0.f;
+    vsOut.UV = 0.f;
+#endif
     return vsOut;
 }
 
