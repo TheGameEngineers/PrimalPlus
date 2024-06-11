@@ -1,19 +1,8 @@
 #include "Common.hlsli"
 
-#define SAMPLE_COUNT 9
-
-struct PostBlurParams
-{
-    float4 values[SAMPLE_COUNT];
-};
-
 cbuffer b00 : register(b0)
 {
     GlobalShaderData GlobalData;
-};
-cbuffer b01 : register(b1)
-{
-    PostBlurParams BlurParams;
 };
 Texture2D GPassMain                     : register(t0);
 StructuredBuffer<Frustum> Frustums      : register(t1);
@@ -60,18 +49,6 @@ float4 HeatMap(StructuredBuffer<uint2> buffer, float2 posXY, float blend)
     return float4(lerp(GPassMain[posXY].xyz, heatMap, blend), 1.f);
 }
 
-float4 Blur(float2 posXY)
-{
-    float4 c = 0.f;
-    
-    for (int i = 0; i < SAMPLE_COUNT; ++i)
-    {
-        c += GPassMain[posXY + BlurParams.values[i].xy] * BlurParams.values[i].z;
-    }
-    
-    return c;
-}
-
 float4 PostProcessPS(in noperspective float4 Position : SV_Position, in noperspective float2 UV : TEXCOORD) : SV_Target0
 {
 #if 0
@@ -113,8 +90,6 @@ float4 PostProcessPS(in noperspective float4 Position : SV_Position, in noperspe
     return float4((float3) c, 1.f);
 #elif 0
     return HeatMap(LightGridOpaque, Position.xy, 0.5f);
-#elif 0
-    return Blur(Position.xy);
 #else
     float3 color = GPassMain[Position.xy].xyz;
         
