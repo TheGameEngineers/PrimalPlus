@@ -8,8 +8,8 @@ struct d3d11_frame_info;
 }
 
 namespace primal::graphics::d3d11::gpass {
-constexpr DXGI_FORMAT				main_buffer_format{ DXGI_FORMAT_R16G16B16A16_FLOAT };
-constexpr DXGI_FORMAT				depth_buffer_format{ DXGI_FORMAT_D32_FLOAT };
+constexpr DXGI_FORMAT               main_buffer_format{ DXGI_FORMAT_R16G16B16A16_FLOAT };
+constexpr DXGI_FORMAT               depth_buffer_format{ DXGI_FORMAT_D32_FLOAT };
 
 bool initialize();
 void shutdown();

@@ -10,13 +10,13 @@ void shutdown();
 namespace submesh {
 struct views_cache
 {
-	ID3D11Buffer** const							index_buffers;
-	ID3D11ShaderResourceView** const				position_views;
-	ID3D11ShaderResourceView** const				element_views;
-	D3D_PRIMITIVE_TOPOLOGY* const					primitive_topologies;
-	DXGI_FORMAT* const								index_formats{};
-	u32* const										elements_types{};
-	u32* const										index_counts;
+    ID3D11Buffer** const							index_buffers;
+    ID3D11ShaderResourceView** const				position_views;
+    ID3D11ShaderResourceView** const				element_views;
+    D3D_PRIMITIVE_TOPOLOGY* const					primitive_topologies;
+    DXGI_FORMAT* const								index_formats{};
+    u32* const										elements_types{};
+    u32* const										index_counts;
 };
 
 id::id_type add(const u8*& data);
@@ -32,7 +32,7 @@ void remove(id::id_type);
 namespace material {
 struct materials_cache
 {
-	material_type::type* const		material_types;
+    material_type::type* const		material_types;
 };
 
 id::id_type add(material_init_info info);
@@ -42,10 +42,10 @@ void get_materials(const id::id_type* const material_ids, u32 material_count, co
 
 namespace render_item {
 struct items_cache {
-	id::id_type* const					entity_ids;
-	id::id_type* const					submesh_gpu_ids;
-	id::id_type* const					material_ids;
-	d3d11_pipeline_state* const			psos;
+    id::id_type* const					entity_ids;
+    id::id_type* const					submesh_gpu_ids;
+    id::id_type* const					material_ids;
+    d3d11_pipeline_state* const			psos;
 };
 id::id_type add(id::id_type entity_id, id::id_type geometry_content_id, u32 material_count, const id::id_type* const material_ids);
 void remove(id::id_type id);

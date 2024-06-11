@@ -5,7 +5,7 @@
 
 namespace primal::graphics::d3d11::d3dx {
 constexpr struct {
-	const D3D11_DEPTH_STENCIL_DESC disabled {
+    const D3D11_DEPTH_STENCIL_DESC disabled {
         0,                                                  //BOOL DepthEnable;
         D3D11_DEPTH_WRITE_MASK_ZERO,                        //D3D11_DEPTH_WRITE_MASK DepthWriteMask;
         D3D11_COMPARISON_LESS_EQUAL,                        //D3D11_COMPARISON_FUNC DepthFunc;
@@ -14,7 +14,7 @@ constexpr struct {
         0,                                                  //UINT8 StencilWriteMask;
         {},                                                 //D3D11_DEPTH_STENCILOP_DESC FrontFace;
         {}                                                  //D3D11_DEPTH_STENCILOP_DESC BackFace;
-	};
+    };
     const D3D11_DEPTH_STENCIL_DESC enabled {
         1,                                                  //BOOL DepthEnable;
         D3D11_DEPTH_WRITE_MASK_ALL,                         //D3D11_DEPTH_WRITE_MASK DepthWriteMask;

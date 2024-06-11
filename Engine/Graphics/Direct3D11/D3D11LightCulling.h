@@ -17,7 +17,7 @@ _NODISCARD id::id_type add_culler();
 void remove_culler(id::id_type id);
 
 void cull_lights(ID3D11DeviceContext4* const ctx,
-	const d3d11_frame_info& d3d11_info);
+    const d3d11_frame_info& d3d11_info);
 
 //REMOVE!!!
 ID3D11ShaderResourceView* frustums(id::id_type light_culling_id, u32 frame_index);
