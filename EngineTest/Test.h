@@ -7,6 +7,7 @@
 #define TEST_ENTITY_COMPONENTS 0
 #define TEST_WINDOW 0
 #define TEST_RENDERER 1
+#define TEST_RENDERER_DX11 0
 
 class test
 {
