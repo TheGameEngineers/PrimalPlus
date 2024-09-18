@@ -46,12 +46,18 @@ public:
     void present() const;
     void resize();
 
-    _NODISCARD constexpr u32 width() const { return(u32)_viewport.Width; }
-    _NODISCARD constexpr u32 height() const { return(u32)_viewport.Height; }
-    _NODISCARD constexpr ID3D11RenderTargetView*& rtv() { return _rtv; }
-    _NODISCARD constexpr const D3D11_VIEWPORT& viewport() const { return _viewport; }
-    _NODISCARD constexpr const D3D11_RECT& scissor_rect() const { return _scissor_rect; }
-    _NODISCARD constexpr id::id_type light_culling_id() const { return _light_culling_id; }
+	_NODISCARD constexpr u32 width() const { return(u32)_viewport.Width; }
+	_NODISCARD constexpr u32 height() const { return(u32)_viewport.Height; }
+	_NODISCARD constexpr ID3D11RenderTargetView*& rtv() { return _rtv; }
+	_NODISCARD constexpr const D3D11_VIEWPORT& viewport() const { return _viewport; }
+	_NODISCARD constexpr const D3D11_RECT& scissor_rect() const { return _scissor_rect; }
+	_NODISCARD constexpr id::id_type light_culling_id() const { return _light_culling_id; }
+    [[nodiscard]] constexpr u32 width() const { return(u32)_viewport.Width; }
+    [[nodiscard]] constexpr u32 height() const { return(u32)_viewport.Height; }
+    [[nodiscard]] constexpr ID3D11RenderTargetView*& rtv() { return _rtv; }
+    [[nodiscard]] constexpr const D3D11_VIEWPORT& viewport() const { return _viewport; }
+    [[nodiscard]] constexpr const D3D11_RECT& scissor_rect() const { return _scissor_rect; }
+    [[nodiscard]] constexpr id::id_type light_culling_id() const { return _light_culling_id; }
 
 private:
     void finalize();
