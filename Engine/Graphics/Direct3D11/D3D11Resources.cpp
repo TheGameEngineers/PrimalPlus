@@ -6,6 +6,7 @@
 namespace primal::graphics::d3d11 {
 ////////// D3D11 BUFFER /////////////////////////////////////////////////////
 d3d11_buffer::d3d11_buffer(d3d11_buffer_init_info info)
+d3d11_buffer::d3d11_buffer(const d3d11_buffer_init_info& info)
 {
     _size = (u32)math::align_size_up(info.size, info.alignment);
     D3D11_BUFFER_DESC desc{};
@@ -35,6 +36,7 @@ d3d11_buffer::release()
 
 ////////// CONSTANT BUFFER /////////////////////////////////////////////////////
 constant_buffer::constant_buffer(d3d11_buffer_init_info info, ID3D11DeviceContext4* const ctx)
+constant_buffer::constant_buffer(const d3d11_buffer_init_info& info, ID3D11DeviceContext4* const ctx)
     : _buffer{ info }
 {
     D3D11_MAPPED_SUBRESOURCE map{};
@@ -101,25 +103,89 @@ uav_clearable_buffer::release()
 d3d11_texture::d3d11_texture(const d3d11_texture_init_info& info)
 {
     auto* const device{ core::device() };
-    
-    if (info.texture)
-    {
-        _texture = info.texture;
-    }
-    else if (info.desc)
-    {
-        DXCall(device->CreateTexture2D(info.desc, info.initial_data, &_texture));
-    }
 
-    assert(_texture);
-    if (!_texture) return;
-    DXCall(device->CreateShaderResourceView(_texture, info.srv_desc, &_srv));
+	if (info.texture)
+
+    _dimension = info.dimension;
+
+    //Horrible
+    switch (info.dimension)
+    {
+    case texture_dimension::texture_1d:
+    {
+        if (info.texture1d)
+        {
+            _texture1d = info.texture1d;
+        }
+        else if (info.desc1d)
+        {
+            DXCall(device->CreateTexture1D(info.desc1d, info.initial_data, &_texture1d));
+        }
+
+        assert(_texture1d);
+        if (!_texture1d) return;
+
+        DXCall(device->CreateShaderResourceView(_texture1d, info.srv_desc, &_srv));
+    } break;
+    case texture_dimension::texture_2d:
+    {
+        if (info.texture2d)
+        {
+            _texture2d = info.texture2d;
+        }
+        else if (info.desc2d)
+        {
+            DXCall(device->CreateTexture2D(info.desc2d, info.initial_data, &_texture2d));
+        }
+
+        assert(_texture2d);
+        if (!_texture2d) return;
+
+        DXCall(device->CreateShaderResourceView(_texture2d, info.srv_desc, &_srv));
+    } break;
+    case texture_dimension::texture_3d:
+    {
+        if (info.texture3d)
+        {
+		_texture = info.texture;
+            _texture3d = info.texture3d;
+        }
+	else if (info.desc)
+        else if (info.desc3d)
+        {
+		DXCall(device->CreateTexture2D(info.desc, info.initial_data, &_texture));
+            DXCall(device->CreateTexture3D(info.desc3d, info.initial_data, &_texture3d));
+        }
+
+	assert(_texture);
+	if (!_texture) return;
+	DXCall(device->CreateShaderResourceView(_texture, info.srv_desc, &_srv));
+        assert(_texture3d);
+        if (!_texture3d) return;
+
+        DXCall(device->CreateShaderResourceView(_texture3d, info.srv_desc, &_srv));
+    } break;
+    default:
+        return;
+    }
 }
 
 void
 d3d11_texture::release()
 {
-    core::deferred_release(_texture);
+	core::deferred_release(_texture);
+    if (_dimension == texture_dimension::texture_1d)
+    {
+        core::deferred_release(_texture1d);
+    }
+    else if (_dimension == texture_dimension::texture_2d)
+    {
+        core::deferred_release(_texture2d);
+    }
+    else
+    {
+        core::deferred_release(_texture3d);
+    }
     core::deferred_release(_srv);
 }
 
@@ -127,7 +193,8 @@ d3d11_texture::release()
 d3d11_render_texture::d3d11_render_texture(const d3d11_texture_init_info& info)
     : _texture{ info }
 {
-    assert(info.desc);
+	assert(info.desc);
+    assert(info.desc2d && info.dimension == texture_dimension::texture_2d);
 
     {
         D3D11_TEXTURE2D_DESC desc;
@@ -139,7 +206,8 @@ d3d11_render_texture::d3d11_render_texture(const d3d11_texture_init_info& info)
 
     D3D11_RENDER_TARGET_VIEW_DESC rtv_desc{};
     rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-    rtv_desc.Format = info.desc->Format;
+	rtv_desc.Format = info.desc->Format;
+    rtv_desc.Format = info.desc2d->Format;
     rtv_desc.Texture2D.MipSlice = 0;
 
     auto* const device{ core::device() };
@@ -165,13 +233,17 @@ d3d11_render_texture::release()
 ////////// DEPTH BUFFER /////////////////////////////////////////////////////
 d3d11_depth_buffer::d3d11_depth_buffer(d3d11_texture_init_info info)
 {
-    assert(info.desc);
-    const DXGI_FORMAT dsv_format{ info.desc->Format };
+	assert(info.desc);
+	const DXGI_FORMAT dsv_format{ info.desc->Format };
+    assert(info.desc2d && info.dimension == texture_dimension::texture_2d);
+    const DXGI_FORMAT dsv_format{ info.desc2d->Format };
 
     D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{};
-    if (info.desc->Format == DXGI_FORMAT_D32_FLOAT)
+	if (info.desc->Format == DXGI_FORMAT_D32_FLOAT)
+    if (info.desc2d->Format == DXGI_FORMAT_D32_FLOAT)
     {
-        info.desc->Format = DXGI_FORMAT_R32_TYPELESS;
+		info.desc->Format = DXGI_FORMAT_R32_TYPELESS;
+        info.desc2d->Format = DXGI_FORMAT_R32_TYPELESS;
         srv_desc.Format = DXGI_FORMAT_R32_FLOAT;
     }
 
@@ -179,7 +251,8 @@ d3d11_depth_buffer::d3d11_depth_buffer(d3d11_texture_init_info info)
     srv_desc.Texture2D.MipLevels = 1;
     srv_desc.Texture2D.MostDetailedMip = 0;
 
-    assert(!info.srv_desc && !info.texture);
+	assert(!info.srv_desc && !info.texture);
+    assert(!info.srv_desc && !info.texture2d);
     info.srv_desc = &srv_desc;
     _texture = d3d11_texture(info);
 
