@@ -21,6 +21,9 @@ math::u32v2							dimensions{ initial_dimensions };
 ID3D11DepthStencilState*			depth_state{ nullptr };
 ID3D11DepthStencilState*			readonly_depth_state{ nullptr };
 ID3D11RasterizerState2*				rs_state_cull{ nullptr };
+ID3D11SamplerState*                 point_sampler{ nullptr };
+ID3D11SamplerState*                 linear_sampler{ nullptr };
+ID3D11SamplerState*                 anisotropic_sampler{ nullptr };
 
 #if _DEBUG
 constexpr f32						clear_value[4]{ 0.5f, 0.5f, .5f, 1.f };
@@ -37,11 +40,16 @@ constexpr f32						clear_value[4]{ 0.f, 0.f, 0.f, 1.f };
 struct gpass_cache
 {
     utl::vector<id::id_type>		d3d11_render_item_ids;
+    u32								shader_view_count{ 0 };
+
     id::id_type*					entity_ids{ nullptr };
     id::id_type*					submesh_gpu_ids{ nullptr };
     id::id_type*					material_ids{ nullptr };
     d3d11_pipeline_state*			pipeline_states{ nullptr };
     material_type::type*			material_types{ nullptr };
+    ID3D11ShaderResourceView***		shader_views{ nullptr };
+    u32*							texture_counts{ nullptr };
+    material_surface**				material_surfaces{ nullptr };
     D3D_PRIMITIVE_TOPOLOGY*			primitive_topologies{ nullptr };
     u32*							elements_types{ nullptr };
     u32*							per_object_data_offsets{ nullptr };
@@ -63,7 +71,7 @@ struct gpass_cache
 
     constexpr content::material::materials_cache materials_cache() const
     {
-        return { material_types };
+        return { material_types, shader_views, texture_counts, material_surfaces };
     }
 
     CONSTEXPR u32 size() const
@@ -93,7 +101,10 @@ struct gpass_cache
             material_ids = (id::id_type*)(&submesh_gpu_ids[items_count]);
             pipeline_states = (d3d11_pipeline_state*)(&material_ids[items_count]);
             material_types = (material_type::type*)(&pipeline_states[items_count]);
-            primitive_topologies = (D3D_PRIMITIVE_TOPOLOGY*)(&material_types[items_count]);
+            shader_views = (ID3D11ShaderResourceView***)(&material_types[items_count]);
+            texture_counts = (u32*)(&shader_views[items_count]);
+            material_surfaces = (material_surface**)(&texture_counts[items_count]);
+            primitive_topologies = (D3D_PRIMITIVE_TOPOLOGY*)(&material_surfaces[items_count]);
             elements_types = (u32*)(&primitive_topologies[items_count]);
             per_object_data_offsets = (u32*)(&elements_types[items_count]);
             index_buffers = (ID3D11Buffer**)(&per_object_data_offsets[items_count]);
@@ -111,6 +122,9 @@ private:
             sizeof(id::id_type) +								//material_ids{ nullptr };
             sizeof(d3d11_pipeline_state) +						//pipeline_states{ nullptr };
             sizeof(material_type::type) +						//material_types{ nullptr };
+            sizeof(ID3D11ShaderResourceView***) +               //shader_views{ nullptr };
+            sizeof(u32*) +							            //texture_counts{ nullptr };
+            sizeof(material_surface**) +						//material_surfaces{ nullptr };
             sizeof(D3D_PRIMITIVE_TOPOLOGY) +					//primitive_topologies{ nullptr }
             sizeof(u32) +										//elements_types{ nullptr };
             sizeof(u32) +										//per object data offsets{ nullptr };
@@ -144,7 +158,8 @@ create_buffers(math::u32v2 size)
 
     {
         d3d11_texture_init_info info{};
-        info.desc = &desc;
+        info.dimension = texture_dimension::texture_2d;
+        info.desc2d = &desc;
 
         gpass_main_buffer = d3d11_render_texture{ info };
 
@@ -156,7 +171,8 @@ create_buffers(math::u32v2 size)
 
     {
         d3d11_texture_init_info info{};
-        info.desc = &desc;
+        info.dimension = texture_dimension::texture_2d;
+        info.desc2d = &desc;
 
         gpass_depth_buffer = d3d11_depth_buffer{ info };
     }
@@ -168,7 +184,7 @@ create_buffers(math::u32v2 size)
 }
 
 void
-fill_in_per_object_buffer(const d3d11_frame_info& d3d11_info)
+fill_in_per_object_buffer(const d3d11_frame_info& d3d11_info, const content::material::materials_cache& materials_cache)
 {
     const gpass_cache& cache{ frame_cache };
     const u32 render_items_count{ (u32)cache.size() };
@@ -188,6 +204,9 @@ fill_in_per_object_buffer(const d3d11_frame_info& d3d11_info)
             XMMATRIX world{ XMLoadFloat4x4(&data.World) };
             XMMATRIX exp{ XMMatrixMultiply(world, d3d11_info.camera->view_projection()) };
             XMStoreFloat4x4(&data.WorldViewProjection, exp);
+
+            const material_surface* const surface{ materials_cache.material_surfaces[i] };
+            memcpy(&data.BaseColor, surface, sizeof(material_surface));
 
             current_data_pointer = cbuffer.allocate<hlsl::PerObjectData>();
             memcpy(current_data_pointer, &data, sizeof(hlsl::PerObjectData));
@@ -211,6 +230,14 @@ set_data_views(ID3D11DeviceContext4* const ctx, u32 cache_index)
     {
         ID3D11ShaderResourceView* const srvs[]{ cache.position_views[cache_index], cache.element_views[cache_index] };
         ctx->VSSetShaderResources(0, _countof(srvs), srvs);
+
+        if (cache.texture_counts[cache_index])
+        {
+            ID3D11ShaderResourceView** const view_array{ cache.shader_views[cache_index] };
+            ID3D11ShaderResourceView* const pssrvs[]{ view_array[0], view_array[1], view_array[2], view_array[3], view_array[4] };
+            
+            ctx->PSSetShaderResources(7, _countof(pssrvs), &pssrvs[0]);
+        }
     } break;
     }
 }
@@ -234,20 +261,25 @@ prepare_render_frame(const d3d11_frame_info& d3d11_info)
     submesh::get_views(items_cache.submesh_gpu_ids, items_count, views_cache);
 
     const material::materials_cache materials_cache{ cache.materials_cache() };
-    material::get_materials(items_cache.material_ids, items_count, materials_cache);
+    material::get_materials(items_cache.material_ids, items_count, materials_cache, cache.shader_view_count);
 
-    fill_in_per_object_buffer(d3d11_info);
+    fill_in_per_object_buffer(d3d11_info, materials_cache);
 }
 }//anonymous namespace
 
 bool
 initialize()
 {
-    DXCall(core::device()->CreateDepthStencilState(&d3dx::depth_state.reversed, &depth_state));
-    DXCall(core::device()->CreateDepthStencilState(&d3dx::depth_state.reversed_readonly, &readonly_depth_state));
-    DXCall(core::device()->CreateRasterizerState2(&d3dx::rasterizer_state.backface_cull, &rs_state_cull));
+    auto* const device{ core::device() };
+    DXCall(device->CreateDepthStencilState(&d3dx::depth_state.reversed, &depth_state));
+    DXCall(device->CreateDepthStencilState(&d3dx::depth_state.reversed_readonly, &readonly_depth_state));
+    DXCall(device->CreateRasterizerState2(&d3dx::rasterizer_state.backface_cull, &rs_state_cull));
     NAME_D3D11_OBJECT(rs_state_cull, L"Default D3D11 Rasterizer State");
 
+    DXCall(device->CreateSamplerState(&d3dx::sampler_state.point, &point_sampler));
+    DXCall(device->CreateSamplerState(&d3dx::sampler_state.linear, &linear_sampler));
+    DXCall(device->CreateSamplerState(&d3dx::sampler_state.anisotropic, &anisotropic_sampler));
+    
     return create_buffers(initial_dimensions);
 }
 
@@ -257,6 +289,9 @@ shutdown()
     core::release(depth_state);
     core::release(readonly_depth_state);
     core::release(rs_state_cull);
+    core::release(point_sampler);
+    core::release(linear_sampler);
+    core::release(anisotropic_sampler);
     gpass_main_buffer.release();
     gpass_depth_buffer.release();
     dimensions = initial_dimensions;
@@ -357,6 +392,9 @@ render(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
 
     d3d11_pipeline_state current_state{ nullptr };
 
+    ID3D11SamplerState* const samplers[]{ point_sampler, linear_sampler, anisotropic_sampler };
+    ctx->PSSetSamplers(0, _countof(samplers), &samplers[0]);
+
     ID3D11ShaderResourceView* const pssrvs[]{ light::non_cullable_light_buffer(frame_idx),
     light::cullable_light_buffer(frame_idx), lightculling::light_grid_opaque(light_culling_id, frame_idx),
     lightculling::light_index_list_opaque(light_culling_id, frame_idx) };
@@ -392,7 +430,7 @@ render(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
         }
         if (current_state.gs != state.gs)
         {
-            ctx->VSSetShader(state.vs, nullptr, 0);
+            ctx->GSSetShader(state.gs, nullptr, 0);
             current_state.gs = state.gs;
         }
         if (current_state.ps != state.ps)
