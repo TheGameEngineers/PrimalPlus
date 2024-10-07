@@ -2,6 +2,7 @@ workspace "Primal"
     configurations { "Debug", "Release", "DebugEditor", "ReleaseEditor" }
     platforms "x64"
     architecture "x64"
+    defines "PRIMAL_PLUS"
     flags "MultiProcessorCompile"
 
     if _TARGET_OS == "windows" then

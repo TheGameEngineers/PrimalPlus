@@ -165,7 +165,7 @@ void compile_shaders_ps()
 {
     ID3DBlob* shader_blob{ nullptr };
     ID3DBlob* error_blob{ nullptr };
-
+  
     //Must be used so that the Elements array doesn't contain empty structs... Though it really isn't used
     D3D_SHADER_MACRO define[2]{};//Last one must be NULL
     define[0].Name = "ELEMENTS_TYPE";
@@ -181,6 +181,7 @@ void compile_shaders_ps()
 
     HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", &define[0],
         D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderPS", "ps_5_0", flags, 0, &shader_blob, &error_blob);
+
     if (error_blob || FAILED(hr))
     {
         OutputDebugStringA((char*)error_blob->GetBufferPointer());
@@ -258,6 +259,7 @@ void
 create_material()
 {
     assert(id::is_valid(vs_id) && id::is_valid(ps_id) && id::is_valid(textured_ps_id));
+
     graphics::material_init_info info{};
     info.shader_ids[graphics::shader_type::vertex] = vs_id;
     info.shader_ids[graphics::shader_type::pixel] = ps_id;

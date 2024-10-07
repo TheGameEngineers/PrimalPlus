@@ -292,6 +292,7 @@ shutdown()
     core::release(point_sampler);
     core::release(linear_sampler);
     core::release(anisotropic_sampler);
+
     gpass_main_buffer.release();
     gpass_depth_buffer.release();
     dimensions = initial_dimensions;

@@ -82,11 +82,10 @@ SamplerState                                    PointSampler            :   regi
 SamplerState                                    LinearSampler           :   register(s1);
 SamplerState                                    AnisotropicSampler      :   register(s2);
 
-
 VertexOut TestShaderVS(in uint VertexIdx : SV_VertexID)
 {
     VertexOut vsOut;
-    
+
     float4 position = float4(VertexPositions[VertexIdx], 1.f);
     float4 worldPosition = mul(PerObjectBuffer.World, position);
    
@@ -205,7 +204,7 @@ float3 PointLight(Surface S, float3 worldPosition, LightParameters light)
     float3 color = 0.f;
 #if NO_LIGHT_ATTENUATION
     float3 N = S.Normal;
-    
+
     if(dSq < light.Range * light.Range)
     {
         const float dRcp = rsqrt(dSq);
@@ -231,7 +230,7 @@ float3 SpotLight(Surface S, float3 worldPosition, LightParameters light)
     float3 color = 0.f;
 #if NO_LIGHT_ATTENUATION
     float3 N = S.Normal;
-    
+
     if (dSq < light.Range * light.Range)
     {
         const float dRcp = rsqrt(dSq);

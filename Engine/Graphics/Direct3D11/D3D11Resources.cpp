@@ -5,7 +5,6 @@
 
 namespace primal::graphics::d3d11 {
 ////////// D3D11 BUFFER /////////////////////////////////////////////////////
-d3d11_buffer::d3d11_buffer(d3d11_buffer_init_info info)
 d3d11_buffer::d3d11_buffer(const d3d11_buffer_init_info& info)
 {
     _size = (u32)math::align_size_up(info.size, info.alignment);
@@ -35,7 +34,6 @@ d3d11_buffer::release()
 }
 
 ////////// CONSTANT BUFFER /////////////////////////////////////////////////////
-constant_buffer::constant_buffer(d3d11_buffer_init_info info, ID3D11DeviceContext4* const ctx)
 constant_buffer::constant_buffer(const d3d11_buffer_init_info& info, ID3D11DeviceContext4* const ctx)
     : _buffer{ info }
 {
@@ -104,8 +102,6 @@ d3d11_texture::d3d11_texture(const d3d11_texture_init_info& info)
 {
     auto* const device{ core::device() };
 
-	if (info.texture)
-
     _dimension = info.dimension;
 
     //Horrible
@@ -173,7 +169,6 @@ d3d11_texture::d3d11_texture(const d3d11_texture_init_info& info)
 void
 d3d11_texture::release()
 {
-	core::deferred_release(_texture);
     if (_dimension == texture_dimension::texture_1d)
     {
         core::deferred_release(_texture1d);
@@ -193,7 +188,6 @@ d3d11_texture::release()
 d3d11_render_texture::d3d11_render_texture(const d3d11_texture_init_info& info)
     : _texture{ info }
 {
-	assert(info.desc);
     assert(info.desc2d && info.dimension == texture_dimension::texture_2d);
 
     {
@@ -206,7 +200,6 @@ d3d11_render_texture::d3d11_render_texture(const d3d11_texture_init_info& info)
 
     D3D11_RENDER_TARGET_VIEW_DESC rtv_desc{};
     rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-	rtv_desc.Format = info.desc->Format;
     rtv_desc.Format = info.desc2d->Format;
     rtv_desc.Texture2D.MipSlice = 0;
 
@@ -233,7 +226,6 @@ d3d11_render_texture::release()
 ////////// DEPTH BUFFER /////////////////////////////////////////////////////
 d3d11_depth_buffer::d3d11_depth_buffer(d3d11_texture_init_info info)
 {
-	assert(info.desc);
 	const DXGI_FORMAT dsv_format{ info.desc->Format };
     assert(info.desc2d && info.dimension == texture_dimension::texture_2d);
     const DXGI_FORMAT dsv_format{ info.desc2d->Format };
@@ -251,8 +243,8 @@ d3d11_depth_buffer::d3d11_depth_buffer(d3d11_texture_init_info info)
     srv_desc.Texture2D.MipLevels = 1;
     srv_desc.Texture2D.MostDetailedMip = 0;
 
-	assert(!info.srv_desc && !info.texture);
     assert(!info.srv_desc && !info.texture2d);
+  
     info.srv_desc = &srv_desc;
     _texture = d3d11_texture(info);
 

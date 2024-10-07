@@ -363,7 +363,7 @@ create_pso(id::id_type material_id, u32 elements_type)
     if (id::is_valid(storage.ps_id)) pso.ps = pixel_shaders[storage.ps_id];
 
     pso_storages.emplace_back(storage);
-
+  
     const u32 id{ (u32)pipeline_states.size() };
     
     pipeline_states.emplace_back(pso);
