@@ -44,6 +44,7 @@ utl::free_list<submesh_view>						submesh_views{};
 std::mutex											submesh_mutex{};
 
 utl::free_list<d3d11_texture>						textures;
+utl::free_list<ID3D11ShaderResourceView*>			texture_pointers;
 std::mutex											texture_mutex{};
 
 utl::free_list<std::unique_ptr<u8[]>>				materials;
@@ -109,11 +110,12 @@ public:
         assert(shader_count && flags);
 
         const u32 buffer_size{
-            sizeof(material_type::type) +								//material type
-            sizeof(shader_flags::flags) +								//shader flags
-            sizeof(u32) +												//texture count
-            sizeof(id::id_type) * shader_count +						//shader ids
-            (sizeof(id::id_type) + sizeof(u32)) * info.texture_count	//texture ids
+            sizeof(material_type::type) +								                    //material type
+            sizeof(shader_flags::flags) +								                    //shader flags
+            sizeof(u32) +												                    //texture count
+            sizeof(material_surface) +                                                      //explains it already
+            sizeof(id::id_type) * shader_count +						                    //shader ids
+            (sizeof(id::id_type) + sizeof(ID3D11ShaderResourceView*)) * info.texture_count  //shader views
         };
 
         material_buffer = std::make_unique<u8[]>(buffer_size);
@@ -123,12 +125,14 @@ public:
         *(material_type::type*)buffer = info.type;
         *(shader_flags::flags*)(&buffer[shader_flags_index]) = (shader_flags::flags)flags;
         *(u32*)(&buffer[texture_count_index]) = info.texture_count;
+        *(material_surface*)&buffer[material_surface_index] = info.surface;
 
         initialize();
 
         if (info.texture_count)
         {
             memcpy(_texture_ids, info.texture_ids, info.texture_count * sizeof(id::id_type));
+            texture::get_shader_views(_texture_ids, info.texture_count, _shader_views);
         }
 
         u32 shader_index{ 0 };
@@ -148,7 +152,9 @@ public:
     [[nodiscard]] constexpr material_type::type material_type() const { return _type; }
     [[nodiscard]] constexpr shader_flags::flags shader_flags() const { return _shader_flags; }
     [[nodiscard]] constexpr id::id_type* texture_ids() const { return _texture_ids; }
+    [[nodiscard]] constexpr ID3D11ShaderResourceView** shader_views() const { return _shader_views; }
     [[nodiscard]] constexpr id::id_type* shader_ids() const { return _shader_ids; }
+    [[nodiscard]] constexpr material_surface* surface() const { return _material_surface; }
 
 private:
     void initialize()
@@ -159,20 +165,25 @@ private:
         _type = *(material_type::type*)buffer;
         _shader_flags = *(shader_flags::flags*)(&buffer[shader_flags_index]);
         _texture_count = *(u32*)(&buffer[texture_count_index]);
+        _material_surface = (material_surface*)&buffer[material_surface_index];
 
-        _shader_ids = (id::id_type*)(&buffer[texture_count_index + sizeof(u32)]);
+        _shader_ids = (id::id_type*)(&buffer[material_surface_index + sizeof(material_surface)]);
         _texture_ids = _texture_count ? &_shader_ids[_mm_popcnt_u32(_shader_flags)] : nullptr;
+        _shader_views = _texture_ids ? (ID3D11ShaderResourceView**)(&_texture_ids[_texture_count]) : nullptr;
     }
 
     constexpr static u32	shader_flags_index{ sizeof(material_type::type) };
     constexpr static u32	texture_count_index{ shader_flags_index + sizeof(shader_flags::flags) };
+    constexpr static u32	material_surface_index{ texture_count_index + sizeof(u32) };
 
-    u8*						_buffer;
-    id::id_type*			_texture_ids;
-    id::id_type*			_shader_ids;
-    u32						_texture_count;
-    material_type::type		_type;
-    shader_flags::flags		_shader_flags;
+    u8*						    _buffer;
+    material_surface*           _material_surface;
+    id::id_type*			    _texture_ids;
+    ID3D11ShaderResourceView**  _shader_views;
+    id::id_type*			    _shader_ids;
+    u32			    			_texture_count;
+    material_type::type		    _type;
+    shader_flags::flags		    _shader_flags;
 };
 
 constexpr D3D_PRIMITIVE_TOPOLOGY
@@ -352,9 +363,135 @@ create_pso(id::id_type material_id, u32 elements_type)
     if (id::is_valid(storage.ps_id)) pso.ps = pixel_shaders[storage.ps_id];
 
     pso_storages.emplace_back(storage);
+  
+    const u32 id{ (u32)pipeline_states.size() };
+    
     pipeline_states.emplace_back(pso);
 
-    return 0;
+    return id;
+}
+
+d3d11_texture
+create_resource_from_texture_data(const u8* const data)
+{
+    assert(data);
+    utl::blob_stream_reader blob{ data };
+    const u32 width{ blob.read<u32>() };
+    const u32 height{ blob.read<u32>() };
+    u32 depth{ 1 };
+    u32 array_size{ blob.read<u32>() };
+    const u32 flags{ blob.read<u32>() };
+    const u32 mip_levels{ blob.read<u32>() };
+    const DXGI_FORMAT format{ (DXGI_FORMAT)blob.read<u32>() };
+    const bool is_3d{ (flags & primal::content::texture_flags::is_volume_map) != 0 };
+
+    assert(mip_levels <= d3d11_texture::max_mips);
+
+    u32 depth_per_mip_level[d3d11_texture::max_mips]{};
+    for (u32 i{ 0 }; i < d3d11_texture::max_mips; ++i)
+    {
+        depth_per_mip_level[i] = 1;
+    }
+
+    if (is_3d)
+    {
+        depth = array_size;
+        array_size = 1;
+        u32 depth_per_mip{ depth };
+
+        for (u32 i{ 0 }; i < mip_levels; ++i)
+        {
+            depth_per_mip_level[i] = depth_per_mip;
+            depth_per_mip = std::max(depth_per_mip >> 1, (u32)1);
+        }
+    }
+
+    utl::vector<D3D11_SUBRESOURCE_DATA> subresources{};
+
+    for (u32 i{ 0 }; i < array_size; ++i)
+    {
+        for (u32 j{ 0 }; j < mip_levels; ++j)
+        {
+            const u32 row_pitch{ blob.read<u32>() };
+            const u32 slice_pitch{ blob.read<u32>() };
+
+            subresources.emplace_back(D3D11_SUBRESOURCE_DATA
+                {
+                    blob.position(),
+                    row_pitch,
+                    slice_pitch
+                });
+
+            blob.skip(slice_pitch * depth_per_mip_level[j]);
+        }
+    }
+
+    D3D11_TEXTURE2D_DESC desc2d{};
+    D3D11_TEXTURE3D_DESC desc3d{};
+
+    d3d11_texture_init_info info{};
+    info.dimension = is_3d ? texture_dimension::texture_3d : texture_dimension::texture_2d;
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc{};
+
+    if (is_3d)
+    {
+        desc3d.Width = width;
+        desc3d.Height = height;
+        desc3d.Depth = depth;
+        desc3d.MipLevels = mip_levels;
+        desc3d.Format = format;
+        desc3d.Usage = D3D11_USAGE_DEFAULT;
+        desc3d.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        desc3d.CPUAccessFlags = 0;
+        desc3d.MiscFlags = 0;
+
+        info.desc3d = &desc3d;
+    }
+    else//2D
+    {
+        desc2d.Width = width;
+        desc2d.Height = height;
+        desc2d.MipLevels = mip_levels;
+        desc2d.ArraySize = array_size;
+        desc2d.Format = format;
+        desc2d.SampleDesc = { 1, 0 };
+        desc2d.Usage = D3D11_USAGE_DEFAULT;
+        desc2d.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        desc2d.CPUAccessFlags = 0;
+        desc2d.MiscFlags = 0;
+
+        info.desc2d = &desc2d;
+    }
+
+    if (flags & primal::content::texture_flags::is_cube_map)
+    {
+        assert(array_size % 6 == 0);
+        
+        info.desc2d->MiscFlags |= D3D11_RESOURCE_MISC_TEXTURECUBE;
+        
+        srv_desc.Format = format;
+
+        if (array_size > 6)
+        {
+            srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBEARRAY;
+            srv_desc.TextureCubeArray.MostDetailedMip = 0;
+            srv_desc.TextureCubeArray.MipLevels = mip_levels;
+            srv_desc.TextureCubeArray.NumCubes = array_size / 6;
+        }
+        else
+        {
+            srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+            srv_desc.TextureCube.MostDetailedMip = 0;
+            srv_desc.TextureCube.MipLevels = mip_levels;
+        }
+
+        info.srv_desc = &srv_desc;
+    }
+
+    info.initial_data = &subresources[0];//????
+
+    return d3d11_texture{ info };
 }
 }//anonymous namespace
 
@@ -526,6 +663,42 @@ get_views(const id::id_type* const gpu_ids, u32 id_count, const views_cache& cac
 }
 }//submesh namespace
 
+namespace texture {
+id::id_type
+add(const u8* const data)
+{
+    assert(data);
+
+    d3d11_texture texture{ create_resource_from_texture_data(data) };
+
+    std::lock_guard lock{ texture_mutex };
+    const id::id_type id{ textures.add(std::move(texture)) };
+    texture_pointers.add(textures[id].srv());
+
+    return id;
+}
+
+void
+remove(id::id_type id)
+{
+    std::lock_guard lock{ texture_mutex };
+
+    textures.remove(id);
+    texture_pointers.remove(id);
+}
+
+void
+get_shader_views(const id::id_type* const texture_ids, u32 id_count, ID3D11ShaderResourceView** const views)
+{
+    assert(texture_ids && id_count && views);
+    std::lock_guard lock{ texture_mutex };
+    for (u32 i{ 0 }; i < id_count; ++i)
+    {
+        views[i] = texture_pointers[texture_ids[i]];
+    }
+}
+}//texture namespace
+
 namespace material {
 id::id_type
 add(material_init_info info)
@@ -547,17 +720,25 @@ remove(id::id_type id)
 }
 
 void
-get_materials(const id::id_type* const material_ids, u32 material_count, const materials_cache& cache)
+get_materials(const id::id_type* const material_ids, u32 material_count, const materials_cache& cache, u32& shader_view_count)
 {
     assert(material_ids && material_count);
     assert(cache.material_types);
     std::lock_guard lock{ material_mutex };
 
+    u32 total_view_count{ 0 };
+
     for (u32 i{ 0 }; i < material_count; ++i)
     {
         const d3d11_material_stream stream{ materials[material_ids[i]].get() };
         cache.material_types[i] = stream.material_type();
+        cache.shader_views[i] = stream.shader_views();
+        cache.texture_counts[i] = stream.texture_count();
+        cache.material_surfaces[i] = stream.surface();
+        total_view_count += stream.texture_count();
     }
+
+    shader_view_count = total_view_count;
 }
 }//material namespace
 

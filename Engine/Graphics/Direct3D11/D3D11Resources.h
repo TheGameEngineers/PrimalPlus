@@ -19,8 +19,8 @@ class d3d11_buffer
 {
 public:
     d3d11_buffer() = default;
-    DISABLE_COPY(d3d11_buffer);
-    explicit d3d11_buffer(d3d11_buffer_init_info info);
+    DISABLE_COPY(d3d11_buffer);  
+    explicit d3d11_buffer(const d3d11_buffer_init_info& info);
     constexpr d3d11_buffer(d3d11_buffer&& o) noexcept
         : _buffer{ o._buffer }, _size{ o._size }
     {
@@ -67,7 +67,7 @@ class constant_buffer
 {
 public:
     constant_buffer() = default;
-    explicit constant_buffer(d3d11_buffer_init_info info, ID3D11DeviceContext4* const ctx);
+    explicit constant_buffer(const d3d11_buffer_init_info& info, ID3D11DeviceContext4* const ctx);
     DISABLE_COPY_AND_MOVE(constant_buffer);
     ~constant_buffer() { release(); }
 
@@ -194,10 +194,29 @@ private:
     ID3D11UnorderedAccessView*	_uav{ nullptr };
 };
 
+struct texture_dimension {
+    enum dimension : u32 {
+        texture_1d = 0,
+        texture_2d,
+        texture_3d,
+    };
+};
+
 struct d3d11_texture_init_info
 {
-    ID3D11Texture2D*					texture{ nullptr };
-    D3D11_TEXTURE2D_DESC*				desc{ nullptr };
+	ID3D11Texture2D*					texture{ nullptr };
+	D3D11_TEXTURE2D_DESC*				desc{ nullptr };
+    texture_dimension::dimension        dimension{};
+    union {
+        ID3D11Texture1D*                texture1d;
+        ID3D11Texture2D*                texture2d{ nullptr };
+        ID3D11Texture3D*                texture3d;
+    };
+    union {
+        D3D11_TEXTURE1D_DESC*				desc1d;
+        D3D11_TEXTURE2D_DESC*				desc2d{ nullptr };
+        D3D11_TEXTURE3D_DESC*				desc3d;
+    };
     D3D11_SHADER_RESOURCE_VIEW_DESC*	srv_desc{ nullptr };
     D3D11_SUBRESOURCE_DATA*				initial_data{ nullptr };
 };
@@ -210,8 +229,21 @@ public:
     DISABLE_COPY(d3d11_texture);
     explicit d3d11_texture(const d3d11_texture_init_info& info);
     constexpr d3d11_texture(d3d11_texture&& o) noexcept
-        : _texture(o._texture), _srv(o._srv)
+		: _texture(o._texture), _srv(o._srv), _dimension(o._dimension)
     {
+        if (_dimension == texture_dimension::texture_1d)
+        {
+            _texture1d = o._texture1d;
+        }
+        else if (_dimension == texture_dimension::texture_2d)
+        {
+            _texture2d = o._texture2d;
+        }
+        else
+        {
+            _texture3d = o._texture3d;
+        }
+
         o.reset();
     }
 
@@ -230,25 +262,62 @@ public:
 
     void release();
 
-    _NODISCARD constexpr ID3D11Texture2D* const resource() const { return _texture; }
+    _NODISCARD constexpr texture_dimension::dimension const dimension() const { return _dimension; }
     _NODISCARD constexpr ID3D11ShaderResourceView* const srv() const { return _srv; }
+    _NODISCARD constexpr void* const resource() const
+    {
+        //Most common first
+        if (_dimension == texture_dimension::texture_2d)
+        {
+            return _texture2d;
+        }
+        else if (_dimension == texture_dimension::texture_3d)
+        {
+            return _texture3d;
+        }
+        else
+        {
+            return _texture1d;
+        }
+    }
 
 private:
     constexpr void move(d3d11_texture& o)
     {
-        _texture = o._texture;
+        if (_dimension == texture_dimension::texture_1d)
+        {
+            _texture1d = o._texture1d;
+        }
+        else if (_dimension == texture_dimension::texture_2d)
+        {
+            _texture2d = o._texture2d;
+        }
+        else
+        {
+            _texture3d = o._texture3d;
+        }
+      
         _srv = o._srv;
         o.reset();
     }
 
     constexpr void reset()
     {
-        _texture = nullptr;
+        _texture1d = nullptr;
+        _texture2d = nullptr;
+        _texture3d = nullptr;
         _srv = nullptr;
     }
 
-    ID3D11Texture2D*			_texture{ nullptr };
-    ID3D11ShaderResourceView*	_srv{ nullptr };
+	ID3D11Texture2D*			_texture{ nullptr };
+	ID3D11ShaderResourceView*	_srv{ nullptr };
+    union {
+        ID3D11Texture1D*			_texture1d;
+        ID3D11Texture2D*			_texture2d{ nullptr };
+        ID3D11Texture3D*			_texture3d;
+    };
+    texture_dimension::dimension    _dimension{};
+    ID3D11ShaderResourceView*	    _srv{ nullptr };
 };
 
 class d3d11_render_texture
@@ -280,7 +349,8 @@ public:
 
     void release();
 
-    _NODISCARD constexpr ID3D11Texture2D* const resource() const { return _texture.resource(); }
+    _NODISCARD constexpr texture_dimension::dimension const dimension() const { return _texture.dimension(); }
+    _NODISCARD constexpr ID3D11Texture2D* const resource() const { return (ID3D11Texture2D* const)_texture.resource(); }
     _NODISCARD constexpr ID3D11ShaderResourceView* const srv() const { return _texture.srv(); }
     _NODISCARD constexpr ID3D11RenderTargetView* const rtv(u32 mip_index) const { assert(mip_index <= _mip_count); return _rtv[mip_index]; }
 
@@ -331,7 +401,9 @@ public:
     ~d3d11_depth_buffer() { release(); }
 
     void release();
-    _NODISCARD constexpr ID3D11Texture2D* const resource() const { return _texture.resource(); }
+
+    _NODISCARD constexpr texture_dimension::dimension const dimension() const { return _texture.dimension(); }
+    _NODISCARD constexpr ID3D11Texture2D* const resource() const { return (ID3D11Texture2D* const)_texture.resource(); }
     _NODISCARD constexpr ID3D11ShaderResourceView* const srv() const { return _texture.srv(); }
     _NODISCARD constexpr ID3D11DepthStencilView* const dsv() const { return _dsv; }
 
