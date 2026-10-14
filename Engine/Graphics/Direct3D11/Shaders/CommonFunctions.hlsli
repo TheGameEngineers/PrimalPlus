@@ -34,41 +34,6 @@ bool ConeInsidePlane(Cone cone, Plane plane)
     return PointInsidePlane(cone.Tip, plane) && PointInsidePlane(Q, plane);
 }
 
-#if !USE_BOUNDING_SPHERES
-
-bool SphereInsideFrustum(Sphere sphere, Frustum frustum, float zNear, float zFar)
-{    
-    return !((sphere.Center.z - sphere.Radius > zNear || sphere.Center.z + sphere.Radius < zFar) ||
-        SphereInsidePlane(sphere, frustum.Planes[0]) || SphereInsidePlane(sphere, frustum.Planes[1]) ||
-    SphereInsidePlane(sphere, frustum.Planes[2]) || SphereInsidePlane(sphere, frustum.Planes[3]));
-}
-
-bool ConeInsideFrustum(Cone cone, Frustum frustum, float zNear, float zFar)
-{
-    bool result = true;
-
-    Plane nearPlane = { float3(0, 0, -1), -zNear };
-    Plane farPlane = { float3(0, 0, 1), zFar };
-
-    if (ConeInsidePlane(cone, nearPlane) || ConeInsidePlane(cone, farPlane))
-    {
-        result = false;
-    }
-
-
-    for (int i = 0; i < 4 && result; i++)
-    {
-        if (ConeInsidePlane(cone, frustum.Planes[i]))
-        {
-            result = false;
-        }
-    }
-
-    return result;
-}
-
-#endif
-
 float4 UnProjectUV(float2 uv, float depth, float4x4 inverse)
 {
     float4 clip = float4(float2(uv.x, 1.f - uv.y) * 2.f - 1.f, depth, 1.f);

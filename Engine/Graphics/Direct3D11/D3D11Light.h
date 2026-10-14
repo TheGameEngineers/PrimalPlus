@@ -5,6 +5,10 @@
 
 namespace primal::graphics::d3d11 {
 struct d3d11_frame_info;
+
+namespace hlsl {
+struct AmbientLightParameters;
+}
 }
 
 namespace primal::graphics::d3d11::light {
@@ -22,6 +26,8 @@ void update_light_buffers(const d3d11_frame_info& d3d11_info, ID3D11DeviceContex
 ID3D11ShaderResourceView* const non_cullable_light_buffer(u32 frame_index);
 ID3D11ShaderResourceView* const cullable_light_buffer(u32 frame_index);
 ID3D11ShaderResourceView* const culling_info_buffer(u32 frame_index);
+hlsl::AmbientLightParameters ambient_light(u64 light_set_key);
+void ambient_light_srvs(u64 light_set_key, ID3D11ShaderResourceView** srvs);
 ID3D11ShaderResourceView* const bounding_spheres_buffer(u32 frame_index);
 u32 non_cullable_light_count(u64 light_set_key);
 u32 cullable_light_count(u64 light_set_key);

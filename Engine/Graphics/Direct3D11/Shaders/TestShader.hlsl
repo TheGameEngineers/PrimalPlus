@@ -17,18 +17,19 @@ struct PixelOut
 
 struct Surface
 {
-    float3 BaseColor;
-    float Metallic;
-    float3 Normal;
-    float PerceptualRoughness;
-    float3 EmissiveColor;
-    float EmissiveIntensity;
-    float3 V;
-    float AmbientOcclusion;
-    float3 DiffuseColor;
-    float a2;
-    float3 SpecularColor;
-    float NoV;
+    float3  BaseColor;
+    float   Metallic;
+    float3  Normal;
+    float   PerceptualRoughness;
+    float3  EmissiveColor;
+    float   EmissiveIntensity;
+    float3  V;
+    float   AmbientOcclusion;
+    float3  DiffuseColor;
+    float   a2;
+    float3  SpecularColor;
+    float   NoV;
+    float   SpecularStrength;
 };
 
 #define ElementsTypePositionOnly                            0x00
@@ -78,14 +79,19 @@ Texture2D                                       EmissiveColorTexture    :   regi
 Texture2D                                       MetalRoughTexture       :   register(t10);
 Texture2D                                       NormalTexture           :   register(t11);
 
+TextureCube                                     AmbientDiffuse          :   register(t12);
+TextureCube                                     AmbientSpecular         :   register(t13);
+Texture2D                                       BrdfLut                 :   register(t14);
+
 SamplerState                                    PointSampler            :   register(s0);
 SamplerState                                    LinearSampler           :   register(s1);
 SamplerState                                    AnisotropicSampler      :   register(s2);
 
+
 VertexOut TestShaderVS(in uint VertexIdx : SV_VertexID)
 {
     VertexOut vsOut;
-
+    
     float4 position = float4(VertexPositions[VertexIdx], 1.f);
     float4 worldPosition = mul(PerObjectBuffer.World, position);
    
@@ -151,6 +157,21 @@ float4 Sample(Texture2D tex, SamplerState s, float2 uv)
     return tex.Sample(s, uv);
 }
 
+float4 Sample(Texture2D tex, SamplerState s, float2 uv, float mip)
+{
+    return tex.SampleLevel(s, uv, mip);
+}
+
+float4 SampleCube(TextureCube tex, SamplerState s, float3 uv)
+{
+    return tex.Sample(s, uv);
+}
+
+float4 SampleCube(TextureCube tex, SamplerState s, float3 uv, float mip)
+{
+    return tex.SampleLevel(s, uv, mip);
+}
+
 float3 PhongBRDF(float3 N, float3 L, float3 V, float3 diffuseColor, float3 specularColor, float shininess)
 {
     float3 color = diffuseColor;
@@ -179,6 +200,10 @@ float3 CookTorranceBRDF(Surface S, float3 L)
     //float3 diffuseBRDF = Diffuse_Burley(NoV, NoL, VoH, S.PerceptualRoughness * S.PerceptualRoughness) * S.DiffuseColor * rho;
     float3 diffuseBRDF = Diffuse_Lambert() * S.DiffuseColor * rho;
     
+    float2 brdfLut = Sample(BrdfLut, LinearSampler, float2(NoV, S.PerceptualRoughness), 0.f).rg;
+    float3 energyCompensation = 1.f + S.SpecularColor * (rcp(brdfLut.x) - 1.f);
+    specularBRDF *= energyCompensation;
+    
     return (diffuseBRDF + specularBRDF) * NoL;
 }
 
@@ -204,7 +229,7 @@ float3 PointLight(Surface S, float3 worldPosition, LightParameters light)
     float3 color = 0.f;
 #if NO_LIGHT_ATTENUATION
     float3 N = S.Normal;
-
+    
     if(dSq < light.Range * light.Range)
     {
         const float dRcp = rsqrt(dSq);
@@ -230,7 +255,7 @@ float3 SpotLight(Surface S, float3 worldPosition, LightParameters light)
     float3 color = 0.f;
 #if NO_LIGHT_ATTENUATION
     float3 N = S.Normal;
-
+    
     if (dSq < light.Range * light.Range)
     {
         const float dRcp = rsqrt(dSq);
@@ -260,10 +285,10 @@ Surface GetSurface(VertexOut psIn, float3 V)
     s.BaseColor = PerObjectBuffer.BaseColor.rgb;
     s.Metallic = PerObjectBuffer.Metallic;
     s.Normal = normalize(psIn.WorldNormal);
-    s.PerceptualRoughness = max(PerObjectBuffer.Roughness, 0.045f);
+    s.PerceptualRoughness = PerObjectBuffer.Roughness;
     s.EmissiveColor = PerObjectBuffer.Emissive;
     s.EmissiveIntensity = PerObjectBuffer.EmissiveIntensity;
-    s.AmbientOcclusion = PerObjectBuffer.AmbientOcclusion;
+    s.AmbientOcclusion = 1.f;
     
 #if TEXTURED_MTL
     float2 uv = psIn.UV;
@@ -272,7 +297,7 @@ Surface GetSurface(VertexOut psIn, float3 V)
     s.EmissiveColor = Sample(EmissiveColorTexture, LinearSampler, uv).rgb;
     float2 metalRough = Sample(MetalRoughTexture, LinearSampler, uv).rg;
     s.Metallic = metalRough.r;
-    s.PerceptualRoughness = max(metalRough.g, 0.045f);
+    s.PerceptualRoughness = metalRough.g;
     s.EmissiveIntensity = 1.f;
     float3 n = Sample(NormalTexture, LinearSampler, uv).rgb;
     n = n * 2.f - 1.f;
@@ -287,11 +312,13 @@ Surface GetSurface(VertexOut psIn, float3 V)
 #endif
     
     s.V = V;
+    s.PerceptualRoughness = max(s.PerceptualRoughness, 0.045f);
     const float roughness = s.PerceptualRoughness * s.PerceptualRoughness;
     s.a2 = roughness * roughness;
     s.NoV = dot(V, s.Normal);
     s.DiffuseColor = s.BaseColor * (1.f - s.Metallic);
     s.SpecularColor = lerp(0.04f, s.BaseColor, s.Metallic);
+    s.SpecularStrength = lerp(1.f - min(s.PerceptualRoughness, 0.95f), 1.f, s.Metallic);
     
     return s;
 }
@@ -303,15 +330,43 @@ uint GetGridIndex(float2 uv, float width)
     return (pos.x / TILE_SIZE) + (tileX * (pos.y / TILE_SIZE));
 }
 
+float3 GetSpecularDominantDir(float3 N, float3 R, float roughness)
+{
+    float smoothness = saturate(1 - roughness);
+    float lerpFactor = smoothness * (sqrt(smoothness) + roughness);
+    return lerp(N, R, lerpFactor);
+}
+
+float3 EvaluateIBL(Surface S)
+{
+    const float NoV = saturate(S.NoV);
+    const float3 F90 = max((1.f - S.PerceptualRoughness), S.SpecularColor);
+    const float3 F = F_Schlick(NoV, S.SpecularColor, F90);
+    
+    const float roughness = S.PerceptualRoughness * S.PerceptualRoughness;
+    
+    AmbientLightParameters IBL = GlobalData.AmbientLight;
+    float3 diffN = S.Normal;
+    float3 diffuse = SampleCube(AmbientDiffuse, LinearSampler, diffN).rgb * S.DiffuseColor * (1.f - F);
+    float3 specN = GetSpecularDominantDir(S.Normal, reflect(-S.V, S.Normal), roughness);
+    float3 specularIBL = SampleCube(AmbientSpecular, LinearSampler, specN, S.PerceptualRoughness * 5.f).rgb;
+    float2 brdfLut = Sample(BrdfLut, LinearSampler, float2(NoV, S.PerceptualRoughness), 0.f).rg;
+    float3 specular = specularIBL * (S.SpecularStrength * S.SpecularColor * brdfLut.x + F90 * brdfLut.y);
+    
+    float3 energyCompensation = 1.f + S.SpecularColor * (rcp(brdfLut.x) - 1.f);
+    specular *= energyCompensation;
+
+    return (diffuse + specular) * IBL.Intensity;
+}
+
 [earlydepthstencil]
 PixelOut TestShaderPS(in VertexOut psIn)
 {
-    PixelOut psOut;
-    
     float3 viewDir = normalize(GlobalData.CameraPosition - psIn.WorldPosition);
     Surface S = GetSurface(psIn, viewDir);
     
     float3 color = 0;
+    #if 0
     
     uint i = 0;
     for (i = 0; i < GlobalData.NumDirectionalLights; ++i)
@@ -331,7 +386,6 @@ PixelOut TestShaderPS(in VertexOut psIn)
     uint lightStartIndex = LightGrid[gridIndex].x;
     const uint lightCount = LightGrid[gridIndex].y;
     
-#if USE_BOUNDING_SPHERES
     const uint numPointLights = lightStartIndex + (lightCount >> 16);
     const uint numSpotLights = numPointLights + (lightCount & 0xffff);
     
@@ -349,22 +403,12 @@ PixelOut TestShaderPS(in VertexOut psIn)
         color += SpotLight(S, psIn.WorldPosition, light);
     }
 #else
-    for (i = 0; i < lightCount; ++i)
+    if(GlobalData.AmbientLight.Intensity > 0.f)
     {
-        const uint lightIndex = LightIndexList[lightStartIndex + i];
-        LightParameters light = CullableLights[lightIndex];
-                
-        if (light.Type == LIGHT_TYPE_POINT_LIGHT)
-        {
-            color += PointLight(S, psIn.WorldPosition, light);
-        }
-        else if (light.Type == LIGHT_TYPE_SPOTLIGHT)
-        {
-            color += SpotLight(S, psIn.WorldPosition, light);
-        }
+        color += EvaluateIBL(S);
     }
-#endif        
-
+#endif
+    
 #if TEXTURED_MTL
     float VoN = dot(viewDir, S.Normal) * 1.3f;
     float VoN2 = VoN * VoN;
@@ -373,6 +417,7 @@ PixelOut TestShaderPS(in VertexOut psIn)
     S.EmissiveColor = max(VoN4 * VoN4, 0.1f) * e * e;
 #endif
 
+    PixelOut psOut;
     psOut.Color = float4(color * S.AmbientOcclusion + S.EmissiveColor * S.EmissiveIntensity, 1.f);
        
     return psOut;

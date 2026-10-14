@@ -191,7 +191,7 @@ fill_in_per_object_buffer(const d3d11_frame_info& d3d11_info, const content::mat
     id::id_type current_entity_id{ id::invalid_id };
     hlsl::PerObjectData* current_data_pointer{ nullptr };
 
-    constant_buffer& cbuffer{ core::cbuffer() };
+    constant_buffer* cbuffer{ core::cbuffer() };
 
     using namespace DirectX;
     for (u32 i{ 0 }; i < render_items_count; ++i)
@@ -208,12 +208,12 @@ fill_in_per_object_buffer(const d3d11_frame_info& d3d11_info, const content::mat
             const material_surface* const surface{ materials_cache.material_surfaces[i] };
             memcpy(&data.BaseColor, surface, sizeof(material_surface));
 
-            current_data_pointer = cbuffer.allocate<hlsl::PerObjectData>();
+            current_data_pointer = cbuffer->allocate<hlsl::PerObjectData>();
             memcpy(current_data_pointer, &data, sizeof(hlsl::PerObjectData));
         }
 
         assert(current_data_pointer);
-        cache.per_object_data_offsets[i] = cbuffer.offset(current_data_pointer);
+        cache.per_object_data_offsets[i] = cbuffer->offset(current_data_pointer);
     }
 }
 
@@ -292,7 +292,6 @@ shutdown()
     core::release(point_sampler);
     core::release(linear_sampler);
     core::release(anisotropic_sampler);
-
     gpass_main_buffer.release();
     gpass_depth_buffer.release();
     dimensions = initial_dimensions;
@@ -322,9 +321,11 @@ set_size(math::u32v2 size)
 }
 
 void
-depth_prepass(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
+depth_prepass(ID3D11DeviceContext4* const ctx, const d3d11_frame_info& d3d11_info)
 {
     prepare_render_frame(d3d11_info);
+
+    core::cbuffer()->push(ctx);
 
     const gpass_cache& cache{ frame_cache };
     const u32 items_count{ cache.size() };
@@ -342,7 +343,7 @@ depth_prepass(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
         d3d11_pipeline_state& state{ cache.pipeline_states[i] };
 
         {
-            ID3D11Buffer* const buffers[]{ core::cbuffer().buffer(), core::cbuffer().buffer() };
+            ID3D11Buffer* const buffers[]{ core::cbuffer()->buffer(), core::cbuffer()->buffer() };
             UINT offsets[]{ d3d11_info.global_shader_data_offset, cache.per_object_data_offsets[i] };
             constexpr UINT constants[]{ d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::GlobalShaderData)),
             d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::PerObjectData)) };
@@ -382,7 +383,7 @@ depth_prepass(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
 }
 
 void
-render(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
+render(ID3D11DeviceContext4* const ctx, const d3d11_frame_info& d3d11_info)
 {
     const gpass_cache& cache{ frame_cache };
     const u32 items_count{ cache.size() };
@@ -401,12 +402,14 @@ render(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info)
     lightculling::light_index_list_opaque(light_culling_id, frame_idx) };
     ctx->PSSetShaderResources(3, _countof(pssrvs), pssrvs);
 
+    ctx->PSSetShaderResources(12, 3, &d3d11_info.ambient_light[0]);
+
     for (u32 i{ 0 }; i < items_count; ++i)
     {
         set_data_views(ctx, i);
         d3d11_pipeline_state& state{ cache.pipeline_states[i] };
 
-        ID3D11Buffer* const buffers[]{ core::cbuffer().buffer(), core::cbuffer().buffer() };
+        ID3D11Buffer* const buffers[]{ core::cbuffer()->buffer(), core::cbuffer()->buffer() };
         UINT offsets[]{ d3d11_info.global_shader_data_offset, cache.per_object_data_offsets[i] };
         constexpr UINT constants[]{ d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::GlobalShaderData)),
         d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::PerObjectData)) };

@@ -33,14 +33,20 @@ shutdown()
     core::release(rs_state);
 }
 
+//NOTE!! USES THE AMBIENT LIGHT TEXTURES IN SLOT 12 13 14 FROM GPASS AND SAMPLERS FROM GPASS
 void
 post_process(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info, ID3D11RenderTargetView* target_rtv)
 {
-    ID3D11ShaderResourceView* const srvs[]{ gpass::main_buffer().srv(), lightculling::frustums(d3d11_info.light_culling_id, d3d11_info.frame_index),
-    lightculling::light_grid_opaque(d3d11_info.light_culling_id, d3d11_info.frame_index) };
+    ID3D11ShaderResourceView* const srvs[]
+    {
+        gpass::main_buffer().srv(),
+        gpass::depth_buffer().srv(),
+        lightculling::frustums(d3d11_info.light_culling_id, d3d11_info.frame_index),
+        lightculling::light_grid_opaque(d3d11_info.light_culling_id, d3d11_info.frame_index)
+    };
 
-    constant_buffer& cbuffer{ core::cbuffer() };
-    ID3D11Buffer* const cbvs[]{ cbuffer.buffer(), cbuffer.buffer() };
+    constant_buffer* cbuffer{ core::cbuffer() };
+    ID3D11Buffer* const cbvs[]{ cbuffer->buffer() };
 
     UINT first_constants[]{ d3d11_info.global_shader_data_offset };
     UINT num_constants[]{ d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::GlobalShaderData)) };
@@ -55,6 +61,8 @@ post_process(ID3D11DeviceContext4* ctx, const d3d11_frame_info& d3d11_info, ID3D
     ctx->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ctx->DrawInstanced(3, 1, 0, 0);
     
+    ID3D11ShaderResourceView* const null_srvs[]{ nullptr };
+    ctx->PSSetShaderResources(0, 1, &null_srvs[0]);
     ctx->OMSetRenderTargets(0, nullptr, nullptr);
 }
 }

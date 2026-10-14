@@ -15,6 +15,7 @@ struct d3d11_frame_info
     id::id_type						light_culling_id{ id::invalid_id };
     u32								frame_index{ 0 };
     f32								delta_time{ 16.7f };
+    ID3D11ShaderResourceView*       ambient_light[3]{};
 };
 }
 
@@ -47,9 +48,9 @@ constexpr void deferred_release(T*& resource)
 }
 
 _NODISCARD ID3D11Device5* const device();
-_NODISCARD ID3D11DeviceContext4* const imm_context();
-_NODISCARD constant_buffer& cbuffer();
+_NODISCARD constant_buffer* cbuffer();
 _NODISCARD u32 current_frame_index();
+_NODISCARD bool has_driver_cmd_lists();
 void set_deferred_releases_flag();
 
 _NODISCARD surface create_surface(platform::window window);

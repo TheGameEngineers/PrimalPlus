@@ -1,5 +1,6 @@
 #include "D3D11Light.h"
 #include "D3D11Core.h"
+#include "D3D11Content.h"
 #include "Shaders/SharedTypes.h"
 #include "EngineAPI/GameEntity.h"
 #include "Components/Transform.h"
@@ -71,6 +72,21 @@ public:
 
             return graphics::light{ id, info.light_set_key };
         }
+        else if (info.type == graphics::light::ambient)
+        {
+            static_assert(sizeof(graphics::ambient_params) / sizeof(id::id_type) == 3);
+
+            ID3D11ShaderResourceView* srvs[3]{};
+            content::texture::get_shader_views(&info.ambient_params.diffuse_texture_id, 3, &srvs[0]);
+            assert(!id::is_valid(_ambient_light_id) && _ambient_srvs[0] == nullptr);
+
+            _ambient_light.Intensity = info.intensity;
+            memcpy(&_ambient_srvs[0], &srvs[0], sizeof(ID3D11ShaderResourceView*) * 3);
+
+            light_owner owner{ game_entity::entity_id{ info.entity_id }, u32_invalid_id, info.type, info.is_enabled };
+            _ambient_light_id = light_id{ _owners.add(owner) };
+            return graphics::light{ _ambient_light_id, info.light_set_key };
+        }
         else
         {
             u32 index{ u32_invalid_id };
@@ -121,6 +137,14 @@ public:
         if (owner.type == graphics::light::directional)
         {
             _non_cullable_owners[owner.data_index] = light_id{ id::invalid_id };
+        }
+        else if (owner.type == graphics::light::ambient)
+        {
+            assert(id == _ambient_light_id);
+            _ambient_light = { -1 };
+            _ambient_light_id = light_id{ id::invalid_id };
+
+            memset(&_ambient_srvs[0], 0x00, sizeof(ID3D11ShaderResourceView*) * 3);
         }
         else
         {
@@ -268,9 +292,7 @@ public:
         _cullable_lights[index].Range = range;
         _culling_info[index].Range = range;
 
-#if USE_BOUNDING_SPHERES
         _culling_info[index].CosPenumbra = -1.f;
-#endif
 
         _bounding_spheres[index].Radius = range;
         make_dirty(index);
@@ -278,11 +300,7 @@ public:
         if (owner.type == graphics::light::spot)
         {
             calculate_cone_bounding_sphere(_cullable_lights[index], _bounding_spheres[index]);
-#if USE_BOUNDING_SPHERES
             _culling_info[index].CosPenumbra = _cullable_lights[index].CosPenumbra;
-#else
-            _culling_info[index].ConeRadius = calculate_cone_radius(range, _cullable_lights[index].CosPenumbra);
-#endif
         }
     }
 
@@ -316,11 +334,8 @@ public:
         _cullable_lights[index].CosPenumbra = DirectX::XMScalarCos(penumbra * 0.5f);
         calculate_cone_bounding_sphere(_cullable_lights[index], _bounding_spheres[index]);
 
-#if USE_BOUNDING_SPHERES
         _culling_info[index].CosPenumbra = _cullable_lights[index].CosPenumbra;
-#else
-        _culling_info[index].ConeRadius = calculate_cone_radius(range(id), _cullable_lights[index].CosPenumbra);
-#endif
+
         make_dirty(index);
     }
 
@@ -440,6 +455,26 @@ public:
         return count;
     }
 
+    CONSTEXPR hlsl::AmbientLightParameters ambient_light()
+    {
+        if (id::is_valid(_ambient_light_id) && _owners[_ambient_light_id].is_enabled)
+        {
+            assert(_owners[_ambient_light_id].type == graphics::light::ambient);
+            return _ambient_light;
+        }
+
+        return { -1.f, {} };
+    }
+
+    CONSTEXPR void ambient_light_srvs(ID3D11ShaderResourceView** srvs)
+    {
+        if (id::is_valid(_ambient_light_id) && _owners[_ambient_light_id].is_enabled)
+        {
+            assert(_owners[_ambient_light_id].type == graphics::light::ambient);
+            memcpy(srvs, &_ambient_srvs[0], sizeof(ID3D11ShaderResourceView*) * 3);
+        }
+    }
+
     constexpr u32 cullable_light_count() const
     {
         return _enabled_light_count;
@@ -451,12 +486,6 @@ public:
     }
 
 private:
-    f32 calculate_cone_radius(f32 range, f32 cos_penumbra)
-    {
-        const f32 sin_penumbra{ sqrt(1.f - cos_penumbra * cos_penumbra) };
-        return sin_penumbra * range;
-    }
-
     void calculate_cone_bounding_sphere(const hlsl::LightParameters& params, hlsl::Sphere& sphere)
     {
         using namespace DirectX;
@@ -503,10 +532,7 @@ private:
         assert(info.type != light::directional && index < _cullable_lights.size());
 
         hlsl::LightParameters& params{ _cullable_lights[index] };
-#if !USE_BOUNDING_SPHERES
-        params.Type = info.type;
-        assert(params.Type < light::count);
-#endif
+
         params.Color = info.color;
         params.Intensity = info.intensity;
 
@@ -535,19 +561,11 @@ private:
 
         hlsl::LightCullingLightInfo& culling_info{ _culling_info[index] };
         culling_info.Range = _bounding_spheres[index].Radius = params.Range;
-#if USE_BOUNDING_SPHERES
         culling_info.CosPenumbra = -1.f;
-#else
-        culling_info.Type = params.Type;
-#endif
 
         if (info.type == light::spot)
         {
-#if USE_BOUNDING_SPHERES
             culling_info.CosPenumbra = params.CosPenumbra;
-#else
-            culling_info.ConeRadius = calculate_cone_radius(params.Range, params.CosPenumbra);
-#endif
         }
     }
 
@@ -631,6 +649,10 @@ private:
     u32													_enabled_light_count{ 0 };
     u8													_something_is_dirty{ 0 };
 
+    hlsl::AmbientLightParameters                        _ambient_light{ -1.f };
+    light_id                                            _ambient_light_id{ id::invalid_id };
+    ID3D11ShaderResourceView*                           _ambient_srvs[3]{ nullptr };
+
     friend class d3d11_light_buffer;
 };
 
@@ -639,7 +661,8 @@ class d3d11_light_buffer
 public:
     d3d11_light_buffer() = default;
 
-    CONSTEXPR void update_light_buffer(light_set& set, u64 light_set_key, u32 frame_index, ID3D11DeviceContext4* const ctx)
+    //CONSTEXPR
+    void update_light_buffer(light_set& set, u64 light_set_key, u32 frame_index, ID3D11DeviceContext4* const ctx)
     {
         const u32 non_cullable_light_count{ set.non_cullable_light_count() };
 
@@ -650,10 +673,10 @@ public:
 
             if (current_size < needed_size)
             {
-                resize_buffer(light_buffer::non_cullable_light, needed_size, frame_index, ctx);
+                resize_buffer(light_buffer::non_cullable_light, needed_size, frame_index);
             }
 
-            set.non_cullable_lights((hlsl::DirectionalLightParameters* const)_buffers[light_buffer::non_cullable_light].cpu_address,
+            set.non_cullable_lights((hlsl::DirectionalLightParameters* const)_buffers[light_buffer::non_cullable_light].cpu_address.get(),
                 _buffers[light_buffer::non_cullable_light].size);
         }
 
@@ -668,18 +691,18 @@ public:
             bool buffers_resized{ false };
             if (current_light_buffer_size < needed_light_buffer_size)
             {
-                resize_buffer(light_buffer::cullable_light, (needed_light_buffer_size * 3) >> 1, frame_index, ctx);
-                resize_buffer(light_buffer::culling_info, (needed_culling_buffer_size * 3) >> 1, frame_index, ctx);
-                resize_buffer(light_buffer::bounding_spheres, (needed_spheres_buffer_size * 3) >> 1, frame_index, ctx);
+                resize_buffer(light_buffer::cullable_light, (needed_light_buffer_size * 3) >> 1, frame_index);
+                resize_buffer(light_buffer::culling_info, (needed_culling_buffer_size * 3) >> 1, frame_index);
+                resize_buffer(light_buffer::bounding_spheres, (needed_spheres_buffer_size * 3) >> 1, frame_index);
                 buffers_resized = true;
             }
 
             const u32 index_mask{ 1UL << frame_index };
             if (buffers_resized || _current_light_set_key != light_set_key)
             {
-                memcpy(_buffers[light_buffer::cullable_light].cpu_address, set._cullable_lights.data(), needed_light_buffer_size);
-                memcpy(_buffers[light_buffer::culling_info].cpu_address, set._culling_info.data(), needed_culling_buffer_size);
-                memcpy(_buffers[light_buffer::bounding_spheres].cpu_address, set._bounding_spheres.data(), needed_spheres_buffer_size);
+                memcpy(_buffers[light_buffer::cullable_light].cpu_address.get(), set._cullable_lights.data(), needed_light_buffer_size);
+                memcpy(_buffers[light_buffer::culling_info].cpu_address.get(), set._culling_info.data(), needed_culling_buffer_size);
+                memcpy(_buffers[light_buffer::bounding_spheres].cpu_address.get(), set._bounding_spheres.data(), needed_spheres_buffer_size);
                 _current_light_set_key = light_set_key;
 
                 for (u32 i{ 0 }; i < cullable_light_count; ++i)
@@ -696,9 +719,9 @@ public:
                         assert(i * sizeof(hlsl::LightParameters) < needed_light_buffer_size);
                         assert(i * sizeof(hlsl::LightCullingLightInfo) < needed_culling_buffer_size);
 
-                        u8* const light_dst{ _buffers[light_buffer::cullable_light].cpu_address + (i * sizeof(hlsl::LightParameters)) };
-                        u8* const culling_dst{ _buffers[light_buffer::culling_info].cpu_address + (i * sizeof(hlsl::LightCullingLightInfo)) };
-                        u8* const bounding_dst{ _buffers[light_buffer::bounding_spheres].cpu_address + (i * sizeof(hlsl::Sphere)) };
+                        u8* const light_dst{ _buffers[light_buffer::cullable_light].cpu_address.get() + (i * sizeof(hlsl::LightParameters)) };
+                        u8* const culling_dst{ _buffers[light_buffer::culling_info].cpu_address.get() + (i * sizeof(hlsl::LightCullingLightInfo)) };
+                        u8* const bounding_dst{ _buffers[light_buffer::bounding_spheres].cpu_address.get() + (i * sizeof(hlsl::Sphere)) };
                         memcpy(light_dst, &set._cullable_lights[i], sizeof(hlsl::LightParameters));
                         memcpy(culling_dst, &set._culling_info[i], sizeof(hlsl::LightCullingLightInfo));
                         memcpy(bounding_dst, &set._bounding_spheres[i], sizeof(hlsl::Sphere));
@@ -710,7 +733,20 @@ public:
 
             set._something_is_dirty &= ~index_mask;
             assert(_current_light_set_key == light_set_key);
+
+            if (buffers_resized || _current_light_set_key != light_set_key || set._something_is_dirty)
+            {
+                ctx->UpdateSubresource(_buffers[light_buffer::cullable_light].buffer, 0, nullptr,
+                    _buffers[light_buffer::cullable_light].cpu_address.get(), _buffers[light_buffer::cullable_light].size, 0);
+                ctx->UpdateSubresource(_buffers[light_buffer::culling_info].buffer, 0, nullptr,
+                    _buffers[light_buffer::culling_info].cpu_address.get(), _buffers[light_buffer::culling_info].size, 0);
+                ctx->UpdateSubresource(_buffers[light_buffer::bounding_spheres].buffer, 0, nullptr,
+                    _buffers[light_buffer::bounding_spheres].cpu_address.get(), _buffers[light_buffer::bounding_spheres].size, 0);
+            }
         }
+
+        ctx->UpdateSubresource(_buffers[light_buffer::non_cullable_light].buffer, 0, nullptr,
+            _buffers[light_buffer::non_cullable_light].cpu_address.get(), _buffers[light_buffer::non_cullable_light].size, 0);
     }
 
     constexpr void release()
@@ -743,7 +779,7 @@ private:
         u32							size{ 0 };
         ID3D11Buffer*				buffer{ nullptr };
         ID3D11ShaderResourceView*	srv{ nullptr };
-        u8*							cpu_address{ nullptr };
+        std::unique_ptr<u8[]>       cpu_address{ nullptr };
     };
 
     constexpr static u32 get_stride(light_buffer::type type)
@@ -759,9 +795,11 @@ private:
         return strides[type];
     }
 
-    void resize_buffer(light_buffer::type type, u32 size, [[maybe_unused]] u32 frame_index, ID3D11DeviceContext4* const ctx)
+    void resize_buffer(light_buffer::type type, u32 size, [[maybe_unused]] u32 frame_index)
     {
         light_buffer& buffer{ _buffers[type] };
+        buffer.cpu_address.reset();
+
         core::release(buffer.srv);
 
         const u32 stride{ get_stride(type) };
@@ -773,11 +811,11 @@ private:
 
         D3D11_BUFFER_DESC desc{};
         desc.ByteWidth = size;
-        desc.Usage = D3D11_USAGE_DYNAMIC;
+        desc.Usage = D3D11_USAGE_DEFAULT;
         desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
         desc.StructureByteStride = stride;
         desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-        desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        desc.CPUAccessFlags = 0;
 
         DXCall(core::device()->CreateBuffer(&desc, nullptr, &buffer.buffer));
 
@@ -789,12 +827,9 @@ private:
 
         core::device()->CreateShaderResourceView(buffer.buffer, &srvdesc, &buffer.srv);
 
-        D3D11_MAPPED_SUBRESOURCE map{};
-        DXCall(ctx->Map(buffer.buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &map));
-        buffer.size = map.RowPitch;
-        buffer.cpu_address = (u8*)map.pData;
+        buffer.size = size;
+        buffer.cpu_address = std::make_unique<u8[]>(size);
     }
-
 
     light_buffer	_buffers[light_buffer::count]{};
     u64				_current_light_set_key{ 0 };
@@ -1069,6 +1104,20 @@ culling_info_buffer(u32 frame_index)
 {
     const d3d11_light_buffer& light_buffer{ light_buffers[frame_index] };
     return light_buffer.culling_info();
+}
+
+hlsl::AmbientLightParameters
+ambient_light(u64 light_set_key)
+{
+    assert(light_sets.count(light_set_key));
+    return light_sets[light_set_key].ambient_light();
+}
+
+void
+ambient_light_srvs(u64 light_set_key, ID3D11ShaderResourceView** srvs)
+{
+    assert(light_sets.count(light_set_key));
+    light_sets[light_set_key].ambient_light_srvs(srvs);
 }
 
 ID3D11ShaderResourceView* const

@@ -13,15 +13,15 @@ float D_GGX(float NoH, float a)
 
 float V_SmithGGXCorrelated(float NoV, float NoL, float a)
 {
-    float GGXL = NoV * sqrt((-NoL * a + NoL) * NoL + 1);
-    float GGXV = NoL * sqrt((-NoV * a + NoV) * NoV + 1);
+    float GGXL = NoV * sqrt((-NoL * a + NoL) * NoL + a);
+    float GGXV = NoL * sqrt((-NoV * a + NoV) * NoV + a);
     return 0.5f / (GGXV + GGXL);
 }
 
 float V_SmithGGXCorrelatedApprox(float NoV, float NoL, float a)
 {
-    float GGXV = NoL * ((-NoV * a + NoV) * a);
-    float GGXL = NoV * ((-NoL * a + NoL) * a);
+    float GGXV = NoL * ((-NoV * a + NoV) + a);
+    float GGXL = NoV * ((-NoL * a + NoL) + a);
     return 0.5f / (GGXV + GGXL);
 }
 

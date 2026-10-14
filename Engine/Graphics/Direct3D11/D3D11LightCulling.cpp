@@ -188,14 +188,16 @@ void
 calculate_grid_frustums(culling_parameters& culler, ID3D11DeviceContext4* const ctx,
     const d3d11_frame_info& d3d11_info)
 {
-    constant_buffer& cbuffer{ core::cbuffer() };
-    hlsl::LightCullingDispatchParameters* const buffer{ cbuffer.allocate<hlsl::LightCullingDispatchParameters>() };
+    constant_buffer* cbuffer{ core::cbuffer() };
+    hlsl::LightCullingDispatchParameters* const buffer{ cbuffer->allocate<hlsl::LightCullingDispatchParameters>() };
     const hlsl::LightCullingDispatchParameters& params{ culler.grid_frustums_dispatch_params };
     memcpy(buffer, &params, sizeof(hlsl::LightCullingDispatchParameters));
     
+    cbuffer->push(ctx);
+
     ID3D11UnorderedAccessView* const uavs[]{ culler.frustums.uav() };
-    ID3D11Buffer* const buffers[]{ cbuffer.buffer(), cbuffer.buffer() };
-    UINT constants[]{ d3d11_info.global_shader_data_offset, cbuffer.offset(buffer) };
+    ID3D11Buffer* const buffers[]{ cbuffer->buffer(), cbuffer->buffer() };
+    UINT constants[]{ d3d11_info.global_shader_data_offset, cbuffer->offset(buffer) };
     constexpr UINT offsets[]{ d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::GlobalShaderData)),
     d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::LightCullingDispatchParameters)) };
 
@@ -274,24 +276,23 @@ void cull_lights(ID3D11DeviceContext4* const ctx,
 
     culler.has_lights = params.NumLights > 0;
 
-    constant_buffer& cbuffer{ core::cbuffer() };
-    hlsl::LightCullingDispatchParameters* const buffer{ cbuffer.allocate<hlsl::LightCullingDispatchParameters>() };
+    constant_buffer* cbuffer{ core::cbuffer() };
+    hlsl::LightCullingDispatchParameters* const buffer{ cbuffer->allocate<hlsl::LightCullingDispatchParameters>() };
     memcpy(buffer, &params, sizeof(hlsl::LightCullingDispatchParameters));
 
+    cbuffer->push(ctx);
+    
     const math::u32v4 clear_value{ 0, 0, 0, 0 };
     culler.light_index_counter.clear_uav(ctx, &clear_value.x);
-
-    ID3D11Buffer* const buffers[]{ cbuffer.buffer(), cbuffer.buffer() };
     
-    UINT constants[]{ d3d11_info.global_shader_data_offset, cbuffer.offset(buffer) };
+    ID3D11Buffer* const buffers[]{ cbuffer->buffer(), cbuffer->buffer() };
+    UINT constants[]{ d3d11_info.global_shader_data_offset, cbuffer->offset(buffer) };
     
     constexpr UINT offsets[]{ d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::GlobalShaderData)),
     d3dx::align_size_for_constant_buffer_offset(sizeof(hlsl::LightCullingDispatchParameters)) };
     
     ID3D11ShaderResourceView* const srvs[]{ culler.frustums.srv(), light::culling_info_buffer(frame_idx),
-#if USE_BOUNDING_SPHERES
         light::bounding_spheres_buffer(frame_idx),
-#endif
         gpass::depth_buffer().srv() };
 
     ID3D11UnorderedAccessView* const uavs[]{ culler.light_index_counter.uav(), culler.light_grid_opaque_buffer.uav(), nullptr,

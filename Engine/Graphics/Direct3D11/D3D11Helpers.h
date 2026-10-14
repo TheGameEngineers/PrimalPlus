@@ -131,54 +131,6 @@ constexpr struct {
 } rasterizer_state;
 
 constexpr struct {
-    const D3D11_SAMPLER_DESC standard {
-        D3D11_FILTER_MIN_MAG_MIP_LINEAR,                    //D3D11_FILTER Filter;
-        D3D11_TEXTURE_ADDRESS_WRAP,                         //D3D11_TEXTURE_ADDRESS_MODE AddressU;
-        D3D11_TEXTURE_ADDRESS_WRAP,                         //D3D11_TEXTURE_ADDRESS_MODE AddressV;
-        D3D11_TEXTURE_ADDRESS_WRAP,                         //D3D11_TEXTURE_ADDRESS_MODE AddressW;
-        0.f,                                                //FLOAT MipLODBias;
-        0,                                                  //UINT MaxAnisotropy;
-        D3D11_COMPARISON_NEVER,                             //D3D11_COMPARISON_FUNC ComparisonFunc;
-        1.f,                                                //FLOAT BorderColor[0];
-        0.f,                                                //FLOAT BorderColor[1];
-        1.f,                                                //FLOAT BorderColor[2];
-        1.f,                                                //FLOAT BorderColor[3];
-        0.f,                                                //FLOAT MinLOD;
-        0.f                                                 //FLOAT MaxLOD;
-    };
-    const D3D11_SAMPLER_DESC debug {
-        D3D11_FILTER_MIN_MAG_MIP_LINEAR,                    //D3D11_FILTER Filter;
-        D3D11_TEXTURE_ADDRESS_BORDER,                       //D3D11_TEXTURE_ADDRESS_MODE AddressU;
-        D3D11_TEXTURE_ADDRESS_BORDER,                       //D3D11_TEXTURE_ADDRESS_MODE AddressV;
-        D3D11_TEXTURE_ADDRESS_BORDER,                       //D3D11_TEXTURE_ADDRESS_MODE AddressW;
-        0.f,                                                //FLOAT MipLODBias;
-        0,                                                  //UINT MaxAnisotropy;
-        D3D11_COMPARISON_NEVER,                             //D3D11_COMPARISON_FUNC ComparisonFunc;
-        1.f,                                                //FLOAT BorderColor[0];
-        0.f,                                                //FLOAT BorderColor[1];
-        1.f,                                                //FLOAT BorderColor[2];
-        1.f,                                                //FLOAT BorderColor[3];
-        0.f,                                                //FLOAT MinLOD;
-        0.f                                                 //FLOAT MaxLOD;
-    };
-    const D3D11_SAMPLER_DESC quality {
-        D3D11_FILTER_MAXIMUM_ANISOTROPIC,                   //D3D11_FILTER Filter;
-        D3D11_TEXTURE_ADDRESS_WRAP,                         //D3D11_TEXTURE_ADDRESS_MODE AddressU;
-        D3D11_TEXTURE_ADDRESS_WRAP,                         //D3D11_TEXTURE_ADDRESS_MODE AddressV;
-        D3D11_TEXTURE_ADDRESS_WRAP,                         //D3D11_TEXTURE_ADDRESS_MODE AddressW;
-        0.f,                                                //FLOAT MipLODBias;
-        0,                                                  //UINT MaxAnisotropy;
-        D3D11_COMPARISON_NEVER,                             //D3D11_COMPARISON_FUNC ComparisonFunc;
-        1.f,                                                //FLOAT BorderColor[0];
-        0.f,                                                //FLOAT BorderColor[1];
-        1.f,                                                //FLOAT BorderColor[2];
-        1.f,                                                //FLOAT BorderColor[3];
-        0.f,                                                //FLOAT MinLOD;
-        0.f                                                 //FLOAT MaxLOD;
-    };
-} sampler_state;
-
-constexpr struct {
     const D3D11_BLEND_DESC1 disabled {
         0,                                                  //BOOL AlphaToCoverageEnable;
         0,                                                  //BOOL IndependentBlendEnable;
@@ -218,6 +170,45 @@ constexpr struct {
         }
     };
 } blend_state;
+
+constexpr struct {
+    const D3D11_SAMPLER_DESC point{
+        D3D11_FILTER_MIN_MAG_MIP_POINT,                     //D3D11_FILTER Filter;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressU;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressV;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressW;
+        0.f,                                                //FLOAT MipLODBias;
+        1,                                                  //UINT MaxAnisotropy;
+        D3D11_COMPARISON_ALWAYS,                            //D3D11_COMPARISON_FUNC ComparisonFunc;
+        { 0.f, 0.f, 0.f, 0.f },                             //FLOAT BorderColor[ 4 ];
+        0.f,                                                //FLOAT MinLOD;
+        D3D11_FLOAT32_MAX                                   //FLOAT MaxLOD;
+    };
+    const D3D11_SAMPLER_DESC linear{
+        D3D11_FILTER_MIN_MAG_MIP_LINEAR,                    //D3D11_FILTER Filter;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressU;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressV;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressW;
+        0.f,                                                //FLOAT MipLODBias;
+        1,                                                  //UINT MaxAnisotropy;
+        D3D11_COMPARISON_ALWAYS,                            //D3D11_COMPARISON_FUNC ComparisonFunc;
+        { 0.f, 0.f, 0.f, 0.f },                             //FLOAT BorderColor[ 4 ];
+        0.f,                                                //FLOAT MinLOD;
+        D3D11_FLOAT32_MAX                                   //FLOAT MaxLOD;
+    };
+    const D3D11_SAMPLER_DESC anisotropic{
+        D3D11_FILTER_ANISOTROPIC,                           //D3D11_FILTER Filter;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressU;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressV;
+        D3D11_TEXTURE_ADDRESS_CLAMP,                        //D3D11_TEXTURE_ADDRESS_MODE AddressW;
+        0.f,                                                //FLOAT MipLODBias;
+        1,                                                  //UINT MaxAnisotropy;
+        D3D11_COMPARISON_ALWAYS,                            //D3D11_COMPARISON_FUNC ComparisonFunc;
+        { 0.f, 0.f, 0.f, 0.f },                             //FLOAT BorderColor[ 4 ];
+        0.f,                                                //FLOAT MinLOD;
+        D3D11_FLOAT32_MAX                                   //FLOAT MaxLOD;
+    };
+} sampler_state;
 
 constexpr u64
 align_size_for_constant_buffer(u64 size)

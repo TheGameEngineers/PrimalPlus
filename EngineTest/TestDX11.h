@@ -13,6 +13,7 @@
 #include "Platform/PlatformTypes.h"
 #include "Platform/Platform.h"
 #include "Input/Input.h"
+#include "Input/InputWin32.h"
 #include "Utilities/IOStream.h"
 
 #include "../ContentTools/Geometry.h"
@@ -64,6 +65,12 @@ struct texture_usage {
 };
 
 id::id_type texture_ids[texture_usage::count];
+
+id::id_type ibl_brdf_lut_id{ id::invalid_id };
+id::id_type ibl_diffuse_id{ id::invalid_id };
+id::id_type ibl_specular_id{ id::invalid_id };
+
+graphics::light ibl_light{};
 
 id::id_type vs_id{ id::invalid_id };
 id::id_type ps_id{ id::invalid_id };
@@ -165,7 +172,7 @@ void compile_shaders_ps()
 {
     ID3DBlob* shader_blob{ nullptr };
     ID3DBlob* error_blob{ nullptr };
-  
+
     //Must be used so that the Elements array doesn't contain empty structs... Though it really isn't used
     D3D_SHADER_MACRO define[2]{};//Last one must be NULL
     define[0].Name = "ELEMENTS_TYPE";
@@ -181,7 +188,6 @@ void compile_shaders_ps()
 
     HRESULT hr = D3DCompileFromFile(L"..\\..\\Engine\\Graphics\\Direct3D11\\Shaders\\TestShader.hlsl", &define[0],
         D3D_COMPILE_STANDARD_FILE_INCLUDE, "TestShaderPS", "ps_5_0", flags, 0, &shader_blob, &error_blob);
-
     if (error_blob || FAILED(hr))
     {
         OutputDebugStringA((char*)error_blob->GetBufferPointer());
@@ -259,7 +265,6 @@ void
 create_material()
 {
     assert(id::is_valid(vs_id) && id::is_valid(ps_id) && id::is_valid(textured_ps_id));
-
     graphics::material_init_info info{};
     info.shader_ids[graphics::shader_type::vertex] = vs_id;
     info.shader_ids[graphics::shader_type::pixel] = ps_id;
@@ -289,6 +294,20 @@ create_material()
     info.texture_ids = &texture_ids[0];
 
     robot_mtl_id = content::create_resource(&info, content::asset_type::material);
+}
+
+void
+create_ibl_light()
+{
+    graphics::light_init_info info{};
+    info.entity_id = 0;
+    info.type = graphics::light::ambient;
+    info.intensity = 0.3f;
+    info.ambient_params.brdf_lut_texture_id = ibl_brdf_lut_id;
+    info.ambient_params.diffuse_texture_id = ibl_diffuse_id;
+    info.ambient_params.specular_texture_id = ibl_specular_id;
+
+    ibl_light = graphics::create_light(info);
 }
 
 void
@@ -383,7 +402,7 @@ create_camera_surface(camera_surface& surface, platform::window_init_info info)
 {
     surface.surface.window = platform::create_window(&info);
     surface.surface.surface = graphics::create_surface(surface.surface.window);
-    surface.entity = create_one_game_entity({ 11.f, 1.f, 0.f }, { 0.f, -3.14f / 2.f, 0.f }, nullptr, "camera_script");
+    surface.entity = create_one_game_entity({ -3.f, 5.f, 8.f }, { 0.f, -math::pi + 0.05f, 0.f }, nullptr, "camera_script");
     surface.camera = graphics::create_camera(graphics::perspective_camera_init_info(surface.entity.get_id()));
     surface.camera.aspect_ratio((f32)surface.surface.window.width() / surface.surface.window.height());
 }
@@ -477,7 +496,7 @@ class engine_test : public test
 public:
     bool initialize() override
     {
-        if(!graphics::initialize(graphics::graphics_platform::direct3d11))
+        if (!graphics::initialize(graphics::graphics_platform::direct3d11))
             return false;
         {
             platform::window_init_info info[]
@@ -526,7 +545,7 @@ public:
             source.multiplier = -1.f;
             input::bind(source);
         }
-
+        
         generate_lights();
 
         {
@@ -544,6 +563,11 @@ public:
                 std::thread{ [] { texture_ids[texture_usage::metal_rough] = load_texture("..\\..\\x64\\metalrough.texture"); }},
                 std::thread{ [] { texture_ids[texture_usage::normal] = load_texture("..\\..\\x64\\normal.texture"); }},
 
+                std::thread{ [] { ibl_brdf_lut_id = load_texture("..\\..\\x64\\ibl\\brdf_lut.texture"); }},
+
+                std::thread{ [] { ibl_diffuse_id = load_texture("..\\..\\x64\\ibl\\set1\\diffuse.texture"); }},
+                std::thread{ [] { ibl_specular_id = load_texture("..\\..\\x64\\ibl\\set1\\specular.texture"); }},
+
                 std::thread{ [] { house_model_id = load_model("..\\..\\x64\\house_model.model"); } },
                 std::thread{ [] { plane_model_id = load_model("..\\..\\x64\\wood_model.model"); } },
                 std::thread{ [] { robot_model_id = load_model("..\\..\\x64\\robot_model.model"); } },
@@ -552,6 +576,8 @@ public:
             };
 
             for (auto& t : threads) t.join();
+
+            create_ibl_light();
 
             create_material();
             id::id_type materials[]{ default_mtl_id };
@@ -571,7 +597,7 @@ public:
             geometry_info.material_count = _countof(robot_materials);
             geometry_info.material_ids = &robot_materials[0];
 
-            robot_entity_id = create_one_game_entity({ 0.f, 0.1f, -1.f }, { 0.f, math::half_pi, 0.f }, &geometry_info, nullptr).get_id();
+            robot_entity_id = create_one_game_entity({ -2.f, 3.6f, 3.f }, {}, &geometry_info, nullptr).get_id();
 
             geometry_info.geometry_content_id = sphere_model_id;
             geometry_info.material_count = 1;
@@ -599,6 +625,7 @@ public:
         timer.begin();
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
         const f32 dt_avg{ timer.dt_avg() };
+
         script::update(dt_avg);
         //test_lights(dt_avg);
 
@@ -609,8 +636,8 @@ public:
                 f32 thresholds[3 + 12]{};
 
                 graphics::frame_info info{};
-                info.render_item_ids = render_item_id_cache.data();
-                info.render_item_count = 3 + 12;
+                info.render_item_ids = render_item_id_cache.data() + 1;
+                info.render_item_count = 3 + 12 - 1;
                 info.light_set_key = left_set;
                 info.average_frame_time = timer.dt_avg();
                 info.thresholds = &thresholds[0];
@@ -626,6 +653,24 @@ public:
     void shutdown() override
     {
         destroy_render_items();
+
+        if (ibl_light.is_valid())
+        {
+            graphics::remove_light(ibl_light.get_id(), 0);
+        }
+        if (id::is_valid(ibl_brdf_lut_id))
+        {
+            content::destroy_resource(ibl_brdf_lut_id, content::asset_type::texture);
+        }
+        if (id::is_valid(ibl_diffuse_id))
+        {
+            content::destroy_resource(ibl_diffuse_id, content::asset_type::texture);
+        }
+        if (id::is_valid(ibl_specular_id))
+        {
+            content::destroy_resource(ibl_specular_id, content::asset_type::texture);
+        }
+
         remove_lights();
 
         for (u32 i{ 0 }; i < _countof(_surfaces); ++i)

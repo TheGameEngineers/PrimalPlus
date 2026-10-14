@@ -5,8 +5,17 @@ cbuffer b00 : register(b0)
     GlobalShaderData GlobalData;
 };
 Texture2D GPassMain                     : register(t0);
-StructuredBuffer<Frustum> Frustums      : register(t1);
-StructuredBuffer<uint2> LightGridOpaque : register(t2);
+Texture2D GPassDepth                    : register(t1);
+StructuredBuffer<Frustum> Frustums      : register(t2);
+StructuredBuffer<uint2> LightGridOpaque : register(t3);
+
+TextureCube                                     AmbientDiffuse          :   register(t12);//NOT USED
+TextureCube                                     AmbientSpecular         :   register(t13);
+Texture2D                                       BrdfLut                 :   register(t14);//NOT USED
+
+SamplerState                                    PointSampler            :   register(s0);
+SamplerState                                    LinearSampler           :   register(s1);
+SamplerState                                    AnisotropicSampler      :   register(s2);
 
 uint GetGridIndex(float2 uv, float width)
 {
@@ -90,9 +99,21 @@ float4 PostProcessPS(in noperspective float4 Position : SV_Position, in noperspe
     return float4((float3) c, 1.f);
 #elif 0
     return HeatMap(LightGridOpaque, Position.xy, 0.5f);
-#else
-    float3 color = GPassMain[Position.xy].xyz;
-        
-    return float4(color.xyz, 1.f);
+#elif 0
+    return float4(GPassMain[Position.xy].xyz, 1.f);
+#elif 1
+    float depth = GPassDepth[Position.xy].r;
+    
+    if (depth > 0.f)
+    {
+        return float4(GPassMain[Position.xy].xyz, 1.f);
+    }
+    else
+    {
+        float4 clip = float4(2.f * UV.x - 1.f, -2.f * UV.y + 1.f, 0.f, 1.f);
+        float3 view = mul(GlobalData.InvProjection, clip).xyz;
+        float3 direction = mul(view, (float3x3) GlobalData.View);
+        return AmbientSpecular.SampleLevel(LinearSampler, direction, 0.1f) * GlobalData.AmbientLight.Intensity;
+    }
 #endif
 }

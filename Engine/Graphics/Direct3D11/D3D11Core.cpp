@@ -82,7 +82,6 @@ public:
 
     void release()
     {
-        _context->ClearState();
         flush();
         core::release(_fence);
         _fence_value = 0;
@@ -135,9 +134,11 @@ PFN_D3D11_CREATE_DEVICE			D3D11CreateDevice{ nullptr };
 IDXGIFactory7*					dxgi_factory{ nullptr };
 ID3D11Device5*					main_device{ nullptr };
 ID3D11DeviceContext4*			context{ nullptr };
-constant_buffer					constant_buffers[frame_buffer_count];
-d3d11_command					gfx_command;
+constant_buffer*				constant_buffers[frame_buffer_count];
 surface_collection				surfaces;
+d3d11_command                   gfx_command;
+u32                             frame_index{ 0 };
+bool                            driver_command_lists{ false };
 
 utl::vector<IUnknown*>			deferred_releases[frame_buffer_count]{};
 u32								deferred_releases_flag[frame_buffer_count]{};
@@ -167,7 +168,10 @@ determine_main_adapter()
         dxgi_factory->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter)) != DXGI_ERROR_NOT_FOUND;
         ++i)
     {
-        if (SUCCEEDED(D3D11CreateDevice(0, D3D_DRIVER_TYPE_HARDWARE, 0,
+        //if (i == 0)
+        //    continue;
+
+        if (SUCCEEDED(D3D11CreateDevice(adapter, D3D_DRIVER_TYPE_UNKNOWN, 0,
             0, feature_levels, _countof(feature_levels), D3D11_SDK_VERSION,
             nullptr, nullptr, nullptr)))
         {
@@ -205,7 +209,7 @@ get_d3d11_frame_info(const frame_info& info, const d3d11_surface& surface,
     camera::d3d11_camera& camera{ camera::get(info.camera_id) };
     camera.update();
 
-    hlsl::GlobalShaderData* datap{ cbuffer().allocate<hlsl::GlobalShaderData>() };
+    hlsl::GlobalShaderData* datap{ cbuffer()->allocate<hlsl::GlobalShaderData>() };
     hlsl::GlobalShaderData& data{ *datap };
 
     using namespace DirectX;
@@ -220,18 +224,22 @@ get_d3d11_frame_info(const frame_info& info, const d3d11_surface& surface,
     data.ViewHeight = surface.viewport().Height;
     data.NumDirectionalLights = light::non_cullable_light_count(info.light_set_key);
     data.DeltaTime = delta_time;
+    data.AmbientLight = light::ambient_light(info.light_set_key);
 
     d3d11_frame_info d3d11_info
     {
         &info,
         &camera,
-        cbuffer().offset(datap),
+        cbuffer()->offset(datap),
         surface.width(),
         surface.height(),
         surface.light_culling_id(),
         frame_idx,
-        delta_time
+        delta_time,
+        {}
     };
+
+    light::ambient_light_srvs(info.light_set_key, &d3d11_info.ambient_light[0]);
 
     return d3d11_info;
 }
@@ -275,9 +283,7 @@ initialize()
         D3D_FEATURE_LEVEL_12_1,
         D3D_FEATURE_LEVEL_12_0,
         D3D_FEATURE_LEVEL_11_1,
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
+        D3D_FEATURE_LEVEL_11_0
     };
 
     u32 device_flags{ 0 };
@@ -305,7 +311,15 @@ initialize()
     NAME_D3D11_OBJECT(main_device, L"Main D3D11 Device");
     NAME_D3D11_OBJECT(context, L"Main D3D11 Context");
 
-    new(&gfx_command) d3d11_command(main_device);
+    D3D11_FEATURE_DATA_THREADING threading;
+    main_device->CheckFeatureSupport(D3D11_FEATURE_THREADING, &threading, sizeof(D3D11_FEATURE_DATA_THREADING));
+    driver_command_lists = threading.DriverCommandLists;
+
+    if (driver_command_lists)
+    {
+        new (&gfx_command) d3d11_command(main_device);
+        if (!gfx_command.context()) return failed_init();
+    }
 
 #if _DEBUG
     {
@@ -327,8 +341,8 @@ initialize()
 
     for (u32 i{ 0 }; i < frame_buffer_count; ++i)
     {
-        new (&constant_buffers[i]) constant_buffer{ constant_buffer::get_default_init_info(1024 * 1024), gfx_command.context() };
-        NAME_D3D11_OBJECT_INDEXED(constant_buffers[i].buffer(), i, L"Global Constant Buffer");
+        constant_buffers[i] = create_constant_buffer(1024 * 1024, driver_command_lists ? gfx_command.context() : context);
+        NAME_D3D11_OBJECT_INDEXED(constant_buffers[i]->buffer(), i, L"Global Constant Buffer");
     }
 
     return true;
@@ -337,12 +351,17 @@ initialize()
 void
 shutdown()
 {
-    gfx_command.release();
+    if (driver_command_lists)
+    {
+        gfx_command.release();
+    }
 
     for (u32 i{ 0 }; i < frame_buffer_count; ++i)
     {
         process_deferred_releases(i);
     }
+
+    frame_index = 0;
 
     content::shutdown();
     lightculling::shutdown();
@@ -352,7 +371,8 @@ shutdown()
 
     for (u32 i{ 0 }; i < frame_buffer_count; ++i)
     {
-        constant_buffers[i].release();
+        constant_buffers[i]->release();
+        delete constant_buffers[i];
     }
 
     release(dxgi_factory);
@@ -381,7 +401,7 @@ shutdown()
     FreeLibrary(d3d11_dll);
     FreeLibrary(dxgi_dll);
 #endif
-    }
+}
 
 ID3D11Device5* const
 device()
@@ -389,13 +409,7 @@ device()
     return main_device;
 }
 
-ID3D11DeviceContext4* const
-imm_context()
-{
-    return context;
-}
-
-constant_buffer&
+constant_buffer*
 cbuffer()
 {
     return constant_buffers[current_frame_index()];
@@ -404,7 +418,20 @@ cbuffer()
 u32
 current_frame_index()
 {
-    return gfx_command.frame_index();
+    if (driver_command_lists)
+    {
+        return gfx_command.frame_index();
+    }
+    else
+    {
+        return frame_index;
+    }
+}
+
+bool
+has_driver_cmd_lists()
+{
+    return driver_command_lists;
 }
 
 void
@@ -416,6 +443,11 @@ set_deferred_releases_flag()
 surface
 create_surface(platform::window window)
 {
+    //if (!driver_command_lists && surfaces.size() >= 1)
+    //{
+    //    //TODO: Return warning because of artifacts
+    //}
+
     surface_id id{ surfaces.add(window) };
     surfaces[id].create_swap_chain(dxgi_factory);
     return surface{ id };
@@ -424,14 +456,30 @@ create_surface(platform::window window)
 void
 remove_surface(surface_id id)
 {
-    gfx_command.flush();
+    if (driver_command_lists)
+    {
+        gfx_command.flush();
+    }
+    else
+    {
+        context->Flush();
+    }
+
     surfaces.remove(id);
 }
 
 void
 resize_surface(surface_id id, u32, u32)
 {
-    gfx_command.flush();
+    if (driver_command_lists)
+    {
+        gfx_command.flush();
+    }
+    else
+    {
+        context->Flush();
+    }
+
     surfaces[id].resize();
 }
 
@@ -450,14 +498,23 @@ surface_height(surface_id id)
 void
 render_surface(surface_id id, frame_info info)
 {
-    gfx_command.begin_frame();
+    ID3D11DeviceContext4* ctx{ nullptr };
+    
+    if (driver_command_lists)
+    {
+        gfx_command.begin_frame();
 
-    ID3D11DeviceContext4* ctx{ gfx_command.context() };
+        ctx = gfx_command.context();
+    }
+    else
+    {
+        ctx = context;
+    }
 
     const u32 frame_idx{ current_frame_index() };
 
-    constant_buffer& cbuffer{ constant_buffers[frame_idx] };
-    cbuffer.clear();
+    constant_buffer* cbuffer{ constant_buffers[frame_idx] };
+    cbuffer->clear();
 
     if (deferred_releases_flag[frame_idx])
     {
@@ -476,9 +533,7 @@ render_surface(surface_id id, frame_info info)
     gpass::depth_prepass(ctx, d3d11_info);
 
     //Lighting Pass
-    //std::thread t = std::thread{ light::update_light_buffers, d3d11_info, ctx };
     light::update_light_buffers(d3d11_info, ctx);
-    //t.join();
     lightculling::cull_lights(ctx, d3d11_info);
 
     //Render Pass
@@ -488,7 +543,16 @@ render_surface(surface_id id, frame_info info)
     //Post-process Pass
     fx::post_process(ctx, d3d11_info, surface.rtv());
 
-    gfx_command.end_frame(surface, context);
+    if (driver_command_lists)
+    {
+        gfx_command.end_frame(surface, context);
+    }
+    else
+    {
+        surface.present();
+
+        frame_index = (frame_index + 1) % frame_buffer_count;
+    }
 }
 }
 
